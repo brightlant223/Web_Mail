@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .um-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .um-action-btn {
+        width: 36px; height: 36px; display: inline-flex; align-items: center;
+        justify-content: center; border-radius: 10px; border: 1px solid var(--border);
+        background: var(--surface); transition: background .15s ease, transform .1s ease;
+    }
+    .um-action-btn:hover { background: var(--surface-2); transform: translateY(-1px); }
+    .um-user-card { border: 1px solid var(--border); border-radius: 16px; padding: 16px; background: var(--surface); }
+    .um-user-card + .um-user-card { margin-top: 12px; }
+    .um-stat-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 999px; }
+    @media (max-width: 575.98px) {
+        .um-header-actions { width: 100%; }
+        .um-header-actions .btn, .um-header-actions form { width: 100%; }
+    }
+</style>
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+    <div>
+        <h2 class="fw-bolder text-dark mb-1">User & Mailbox Management</h2>
+        <p class="text-muted mb-0">Create custom domain email mailboxes (e.g. <code>username@brightlant.com</code>), import real rosters, and manage quotas.</p>
+    </div>
+    <div class="d-flex gap-2 um-header-actions">
+        <form action="{{ url_for('clear_sample_users') }}" method="POST" onsubmit="return confirm('Clear all sample/dummy employee accounts? You can then import your real employee data.')">
+            <button type="submit" class="btn btn-outline-danger rounded-pill fw-bold btn-sm shadow-sm px-3 w-100">
+                <i class="fas fa-trash-can me-1"></i> Clear Sample Data (Start Fresh)
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Import Real Employees CSV Card -->
+    <div class="col-12">
+        <div class="card p-3 border-0 shadow-sm rounded-4 bg-primary bg-opacity-10 border-start border-4 border-primary">
+            <form action="{{ url_for('import_real_users_csv') }}" method="POST" enctype="multipart/form-data" class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div>
+                    <strong class="text-dark d-block"><i class="fas fa-file-csv text-primary me-2"></i> Import Real Employee Roster (CSV / Excel)</strong>
+                    <small class="text-muted">File headers required: <code>name</code>, <code>email</code>, optional: <code>password</code>, <code>daily_limit</code></small>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <input type="file" name="file" class="form-control form-control-sm rounded-3 bg-white" required>
+                    <button type="submit" class="btn btn-primary btn-sm rounded-pill font-bold px-4 text-nowrap">
+                        <i class="fas fa-upload me-1"></i> Import Real Roster
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Left Side: Create Mailbox Form -->
+    <div class="col-lg-4">
+        <div class="card p-4 border-0 shadow-sm rounded-4 bg-white">
+            <div class="d-flex align-items-center mb-3">
+                <div class="bg-indigo bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px; background: rgba(99,102,241,0.1);">
+                    <i class="fas fa-user-plus fs-5"></i>
+                </div>
+                <div>
+                    <h5 class="fw-bold mb-0 text-dark">Create Mailbox</h5>
+                    <small class="text-muted">Domain email account</small>
+                </div>
+            </div>
+            <hr class="text-muted opacity-25">
+            
+            <form action="{{ url_for('admin_users') }}" method="POST">
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-muted small">User Full Name</label>
+                    <input type="text" name="name" class="form-control form-control-custom" placeholder="e.g. Rahul Sharma" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-muted small">Username & Domain</label>
+                    <div class="input-group">
+                        <input type="text" name="username" class="form-control form-control-custom text-end" placeholder="rahul" required>
+                        <span class="input-group-text bg-light border-0 fw-bold">@</span>
+                        <select name="domain_id" class="form-select form-control-custom" required>
+                            {% for d in domains %}
+                                <option value="{{ d.id }}">{{ d.domain_name }}</option>
+                            {% else %}
+                                <option value="">No Domains Added</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-muted small">Account Password</label>
+                    <input type="text" name="password" class="form-control form-control-custom" placeholder="Set user password" required>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-muted small">Daily Send Quota (Emails/Day)</label>
+                    <input type="number" name="daily_limit" class="form-control form-control-custom" value="500" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary-gradient w-100 py-3 rounded-3 fw-bold shadow-sm">
+                    <i class="fas fa-user-check me-1"></i> Create Mailbox
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Side: Active Users Table -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+            <div class="p-3 p-md-4 border-bottom bg-light bg-opacity-50">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <h5 class="fw-bold mb-0 text-dark">
+                        <i class="fas fa-inbox text-primary me-2"></i>Active Mailboxes
+                    </h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="um-stat-pill" style="background: rgba(99,102,241,.1); color: #6366f1;">
+                            <i class="fas fa-users"></i> {{ users|length }} Total
+                        </span>
+                        <span class="um-stat-pill" style="background: rgba(22,163,74,.1); color: #16a34a;">
+                            <span class="um-status-dot" style="background:#16a34a;"></span>
+                            {{ users|selectattr('status','equalto','active')|list|length }} Active
+                        </span>
+                    </div>
+                </div>
+                <div class="position-relative">
+                    <i class="fas fa-magnifying-glass position-absolute text-muted" style="left:14px; top:50%; transform:translateY(-50%); font-size:12px;"></i>
+                    <input type="text" id="userSearchInput" class="form-control form-control-custom ps-5 rounded-pill"
+                           placeholder="Search by name or email…" autocomplete="off">
+                </div>
+            </div>
+
+            <!-- Desktop Table (lg and up) -->
+            <div class="p-0 d-none d-lg-block">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-custom-header">
+                            <tr>
+                                <th class="ps-4">User Details</th>
+                                <th>Daily Limit</th>
+                                <th>Sent Today</th>
+                                <th>Status</th>
+                                <th class="text-end pe-4">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                            {% for u in users %}
+                            <tr class="um-row" data-search="{{ (u.name ~ ' ' ~ u.email)|lower }}">
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center">
+                                        <img src="https://ui-avatars.com/api/?name={{ u.name }}&background=6366f1&color=fff&bold=true" class="rounded-circle me-3" width="40" height="40" alt="Avatar">
+                                        <div>
+                                            <strong class="text-dark d-block">{{ u.name }}</strong>
+                                            <small class="text-muted">{{ u.email }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="badge bg-dark px-3 py-2 rounded-pill fw-bold">{{ u.daily_limit }} / day</span></td>
+                                <td>
+                                    <span class="badge badge-soft-warning px-3 py-2 rounded-pill fw-bold">
+                                        <i class="fas fa-paper-plane me-1"></i> {{ u.sent_today }} Mails
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if u.status == 'active' %}
+                                        <span class="badge badge-soft-success px-3 py-2 rounded-pill"><span class="um-status-dot me-1" style="background:#16a34a;"></span>Active</span>
+                                    {% else %}
+                                        <span class="badge badge-soft-danger px-3 py-2 rounded-pill"><span class="um-status-dot me-1" style="background:#dc3545;"></span>Suspended</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end pe-4">
+                                    <form action="{{ url_for('toggle_user_status', id=u.id) }}" method="POST" class="d-inline">
+                                        <button type="submit" class="um-action-btn me-1" title="Toggle Active/Suspended">
+                                            <i class="fas {% if u.status=='active' %}fa-user-lock text-warning{% else %}fa-user-check text-success{% endif %}"></i>
+                                        </button>
+                                    </form>
+                                    <form action="{{ url_for('delete_user', id=u.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this user account?')">
+                                        <button type="submit" class="um-action-btn text-danger" title="Delete User"><i class="fas fa-trash"></i></button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- Mobile Cards (below lg) -->
+            <div class="p-3 d-lg-none" id="userCardList">
+                {% for u in users %}
+                <div class="um-user-card um-row" data-search="{{ (u.name ~ ' ' ~ u.email)|lower }}">
+                    <div class="d-flex align-items-start justify-content-between gap-2">
+                        <div class="d-flex align-items-center" style="min-width:0;">
+                            <img src="https://ui-avatars.com/api/?name={{ u.name }}&background=6366f1&color=fff&bold=true" class="rounded-circle me-3 flex-shrink-0" width="44" height="44" alt="Avatar">
+                            <div style="min-width:0;">
+                                <strong class="text-dark d-block text-truncate">{{ u.name }}</strong>
+                                <small class="text-muted text-truncate d-block">{{ u.email }}</small>
+                            </div>
+                        </div>
+                        {% if u.status == 'active' %}
+                            <span class="badge badge-soft-success px-2 py-1 rounded-pill flex-shrink-0"><span class="um-status-dot me-1" style="background:#16a34a;"></span>Active</span>
+                        {% else %}
+                            <span class="badge badge-soft-danger px-2 py-1 rounded-pill flex-shrink-0"><span class="um-status-dot me-1" style="background:#dc3545;"></span>Suspended</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                        <span class="badge bg-dark px-3 py-2 rounded-pill fw-bold"><i class="fas fa-gauge-high me-1"></i>{{ u.daily_limit }} / day</span>
+                        <span class="badge badge-soft-warning px-3 py-2 rounded-pill fw-bold"><i class="fas fa-paper-plane me-1"></i>{{ u.sent_today }} Sent</span>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3 pt-3 border-top">
+                        <form action="{{ url_for('toggle_user_status', id=u.id) }}" method="POST" class="flex-grow-1">
+                            <button type="submit" class="btn btn-light w-100 rounded-3 fw-bold border">
+                                <i class="fas {% if u.status=='active' %}fa-user-lock text-warning{% else %}fa-user-check text-success{% endif %} me-1"></i>
+                                {% if u.status=='active' %}Suspend{% else %}Activate{% endif %}
+                            </button>
+                        </form>
+                        <form action="{{ url_for('delete_user', id=u.id) }}" method="POST" onsubmit="return confirm('Delete this user account?')">
+                            <button type="submit" class="um-action-btn text-danger" title="Delete User"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Shared empty states -->
+            {% if not users %}
+            <div class="text-center py-5 px-3 text-muted">
+                <i class="fas fa-users-slash fs-1 text-secondary opacity-25 mb-3 d-block"></i>
+                No user mailboxes created yet. Create one using the form on the left or import a CSV above.
+            </div>
+            {% endif %}
+            <div id="noUserResults" class="text-center py-5 px-3 text-muted d-none">
+                <i class="fas fa-magnifying-glass fs-3 mb-2 opacity-30 d-block"></i>
+                <small>No matching mailboxes found.</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Live client-side filter across both desktop rows and mobile cards
+(function () {
+    const input = document.getElementById('userSearchInput');
+    if (!input) return;
+    const rows = document.querySelectorAll('.um-row');
+    const noRes = document.getElementById('noUserResults');
+    input.addEventListener('input', () => {
+        const q = input.value.trim().toLowerCase();
+        let visible = 0;
+        rows.forEach(el => {
+            const hay = el.getAttribute('data-search') || '';
+            if (!q || hay.includes(q)) {
+                el.classList.remove('d-none');
+                visible++;
+            } else {
+                el.classList.add('d-none');
+            }
+        });
+        // rows counts both desktop + mobile copies; only show empty note when nothing matches at all
+        if (noRes) noRes.classList.toggle('d-none', visible !== 0);
+    });
+})();
+</script>
+{% endblock %}

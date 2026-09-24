@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Page Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-extrabold text-dark mb-1">
+                <i class="fas fa-key text-warning me-2"></i> DNS & Authentication Suite
+            </h2>
+            <p class="text-muted mb-0">Configure SPF, DKIM RSA-2048 keys, DMARC policies, MX records, and PTR reverse DNS for optimal email deliverability (Sections 10, 23, 27).</p>
+        </div>
+        <div>
+            <select class="form-select rounded-pill font-bold shadow-sm" onchange="window.location.href='?domain=' + this.value">
+                {% for d in domains %}
+                    <option value="{{ d.domain_name }}" {% if d.domain_name == selected_domain %}selected{% endif %}>Domain: {{ d.domain_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <!-- Live Record Inspection Cards -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold text-dark mb-0"><i class="fas fa-list-check text-primary me-2"></i> DNS Records Audit for <span class="text-primary">{{ selected_domain }}</span></h5>
+            <span class="badge bg-success bg-opacity-10 text-success fw-bold px-3 py-1.5 rounded-pill"><i class="fas fa-circle-check me-1"></i> Active Record Status</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Record Type</th>
+                            <th>Host / Selector</th>
+                            <th>Target / Value</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge bg-primary">MX</span></td>
+                            <td class="font-mono">@ ({{ selected_domain }})</td>
+                            <td class="font-mono text-primary fw-bold">10 mail.{{ selected_domain }}</td>
+                            <td><span class="badge bg-success"><i class="fas fa-check me-1"></i> Verified</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-info">A / AAAA</span></td>
+                            <td class="font-mono">mail.{{ selected_domain }}</td>
+                            <td class="font-mono text-dark fw-bold">143.198.53.186</td>
+                            <td><span class="badge bg-success"><i class="fas fa-check me-1"></i> Valid IP</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-warning text-dark">SPF</span></td>
+                            <td class="font-mono">@</td>
+                            <td class="font-mono text-muted text-break">{{ dns_results.spf }}</td>
+                            <td><span class="badge bg-success"><i class="fas fa-check me-1"></i> Valid</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-secondary">DKIM</span></td>
+                            <td class="font-mono">google._domainkey.{{ selected_domain }}</td>
+                            <td class="font-mono text-muted text-truncate" style="max-width: 300px;">{{ generated_dkim_txt }}</td>
+                            <td><span class="badge bg-success"><i class="fas fa-lock me-1"></i> 2048-bit RSA</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-danger">DMARC</span></td>
+                            <td class="font-mono">_dmarc.{{ selected_domain }}</td>
+                            <td class="font-mono text-muted text-break">{{ generated_dmarc }}</td>
+                            <td><span class="badge bg-success"><i class="fas fa-shield me-1"></i> Policy Active</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generators & Tools Row -->
+    <div class="row g-4 mb-4">
+        <!-- SPF Generator -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="fw-bold text-dark mb-0"><i class="fas fa-shield text-warning me-2"></i> SPF Record Generator</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="domain" value="{{ selected_domain }}">
+                        <div class="mb-3">
+                            <label class="form-label font-bold text-dark">Include Providers:</label>
+                            <input type="text" name="spf_includes" class="form-control rounded-3" value="_spf.google.com" placeholder="_spf.google.com, sendgrid.net">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label font-bold text-dark">IP4 Addresses:</label>
+                            <input type="text" name="spf_ip4" class="form-control rounded-3" placeholder="143.198.53.186">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label font-bold text-dark">Strictness Policy:</label>
+                            <select name="spf_policy" class="form-select rounded-3">
+                                <option value="~all" selected>~all (SoftFail - Recommended)</option>
+                                <option value="-all">-all (HardFail - Reject unauthorized)</option>
+                                <option value="?all">?all (Neutral)</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-warning rounded-pill w-100 font-bold shadow-sm">
+                            <i class="fas fa-wand-magic-sparkles me-1"></i> Generate SPF Record
+                        </button>
+                    </form>
+                    <div class="mt-3 p-3 bg-light rounded-3 border">
+                        <small class="text-muted fw-bold d-block mb-1">Generated SPF TXT Value:</small>
+                        <code class="text-dark font-mono text-break" style="font-size: 12px;">{{ generated_spf }}</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DKIM Key Generator -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="fw-bold text-dark mb-0"><i class="fas fa-key text-success me-2"></i> DKIM RSA Key Pair Generator</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="domain" value="{{ selected_domain }}">
+                        <div class="mb-3">
+                            <label class="form-label font-bold text-dark">Selector Name:</label>
+                            <input type="text" name="dkim_selector" class="form-control rounded-3" value="google" placeholder="default / google / mail">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label font-bold text-dark">Key Length:</label>
+                            <select name="dkim_bits" class="form-select rounded-3">
+                                <option value="2048" selected>2048 bits (Industry Standard)</option>
+                                <option value="1024">1024 bits (Legacy compatibility)</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-success rounded-pill w-100 font-bold shadow-sm">
+                            <i class="fas fa-key me-1"></i> Generate RSA DKIM Pair
+                        </button>
+                    </form>
+                    <div class="mt-3 p-3 bg-light rounded-3 border">
+                        <small class="text-muted fw-bold d-block mb-1">Generated DKIM TXT Record:</small>
+                        <div class="font-mono text-success text-break" style="font-size: 11px;">{{ generated_dkim_txt }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DMARC Policy Builder -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="fw-bold text-dark mb-0"><i class="fas fa-user-shield text-danger me-2"></i> DMARC Policy Builder</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="domain" value="{{ selected_domain }}">
+                        <div class="mb-3">
+                            <label class="form-label font-bold text-dark">DMARC Policy (p):</label>
+                            <select name="dmarc_p" class="form-select rounded-3">
+                                <option value="none">none (Monitoring only)</option>
+                                <option value="quarantine" selected>quarantine (Send unaligned to spam)</option>
+                                <option value="reject">reject (Block non-compliant emails)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label font-bold text-dark">Report Email (rua):</label>
+                            <input type="text" name="dmarc_rua" class="form-control rounded-3" value="mailto:dmarc-reports@{{ selected_domain }}">
+                        </div>
+                        <button type="submit" class="btn btn-danger rounded-pill w-100 font-bold shadow-sm">
+                            <i class="fas fa-shield-halved me-1"></i> Build DMARC Policy
+                        </button>
+                    </form>
+                    <div class="mt-3 p-3 bg-light rounded-3 border">
+                        <small class="text-muted fw-bold d-block mb-1">Generated DMARC Record:</small>
+                        <code class="text-danger font-mono text-break" style="font-size: 12px;">{{ generated_dmarc }}</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

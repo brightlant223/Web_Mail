@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bolder text-dark mb-1">Create Bulk Email Campaign</h2>
+        <p class="text-muted mb-0">Send mass emails to 200+ contacts with personalization placeholders <code>{{'{{name}}'}}</code> and open rate tracking.</p>
+    </div>
+    <div>
+        <a href="{{ url_for('sample_csv') }}" class="btn btn-outline-success rounded-3 fw-bold btn-sm">
+            <i class="fas fa-file-csv me-1"></i> Download 200 Sample CSV
+        </a>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card p-4 p-md-5 border-0 shadow-sm rounded-4 bg-white">
+            <form method="POST" action="{{ url_for('bulk_mail') }}" enctype="multipart/form-data" id="bulkMailForm">
+                
+                <div class="row g-3 mb-4">
+                    <!-- Campaign Title -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted small">Campaign Title (Internal Reference)</label>
+                        <input type="text" name="title" class="form-control form-control-custom" placeholder="e.g. October Product Launch" required>
+                    </div>
+
+                    <!-- Email Subject -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted small">Email Subject Line</label>
+                        <input type="text" name="subject" class="form-control form-control-custom" placeholder="Exclusive update for {{'{{name}}'}}!" required>
+                    </div>
+                </div>
+
+                <!-- Recipient Source Selection -->
+                <div class="mb-4 p-4 bg-light rounded-4 border">
+                    <h6 class="fw-bold text-dark mb-3"><i class="fas fa-users text-primary me-2"></i> Select Recipients Source (Choose One)</h6>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-muted small">Upload CSV or Excel File (200+ Contacts)</label>
+                            <input type="file" name="file" id="csvFileInput" class="form-control form-control-custom" accept=".csv, .xlsx">
+                            <small class="text-muted mt-1 d-block" style="font-size: 11px;">Must contain an <code>email</code> column. Optional: <code>name</code>, <code>company</code>.</small>
+                            <div id="filePreviewContainer" class="mt-2"></div>
+                        </div>
+
+                        <div class="col-md-6 d-flex flex-column justify-content-center border-start ps-md-4">
+                            <label class="form-label fw-bold text-muted small">Or Use Saved Contact Book</label>
+                            <div class="form-check form-switch mt-1">
+                                <input class="form-check-input" type="checkbox" name="use_saved_contacts" id="use_saved_contacts">
+                                <label class="form-check-label fw-bold text-dark" for="use_saved_contacts">
+                                    Send to all {{ contacts_count }} saved contacts in Contact Book
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Template Picker & Personalization Placeholders -->
+                <div class="mb-3 d-flex justify-content-between align-items-center">
+                    <label class="form-label fw-bold text-muted small mb-0">Email Content Editor</label>
+                    <div class="d-flex gap-2">
+                        <span class="badge badge-soft-primary px-3 py-1.5 rounded-pill" style="font-size: 11px;">
+                            Placeholders: <code>{{'{{name}}'}}</code>, <code>{{'{{email}}'}}</code>, <code>{{'{{company}}'}}</code>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Template Quick Selector -->
+                {% if templates %}
+                    <div class="mb-3">
+                        <select class="form-select form-select-sm form-control-custom bg-white text-muted fw-bold" id="templatePicker" onchange="loadTemplate(this)">
+                            <option value="">-- Quick Load Saved Email Template --</option>
+                            {% for t in templates %}
+                                <option value="{{ t.id }}" data-subject="{{ t.subject }}" data-content="{{ t.content }}">{{ t.title }} ({{ t.category }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                {% endif %}
+
+                <!-- HTML Email Body TextArea -->
+                <div class="mb-4">
+                    <textarea name="message" id="email_editor" class="form-control form-control-custom" rows="12" placeholder="Hi {{'{{name}}'}}, Write your message here..."></textarea>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-primary-gradient w-100 py-3.5 rounded-4 fs-5 fw-bold shadow-lg" onclick="return confirm('Are you ready to dispatch this campaign?')">
+                    <i class="fas fa-paper-plane me-2"></i> Launch Bulk Campaign Now
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function loadTemplate(select) {
+        const option = select.options[select.selectedIndex];
+        if (option && option.value) {
+            const subject = option.getAttribute('data-subject');
+            const content = option.getAttribute('data-content');
+            
+            document.querySelector('input[name="subject"]').value = subject;
+            document.getElementById('email_editor').value = content;
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bolder text-dark mb-1">Custom Domain Management</h2>
+        <p class="text-muted mb-0">Add your custom domain (e.g. <code>mycompany.com</code>) and setup DNS records for authentic email delivery.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left Side: Add Domain Form -->
+    <div class="col-lg-4">
+        <div class="card p-4 border-0 shadow-sm rounded-4 bg-white">
+            <div class="d-flex align-items-center mb-3">
+                <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px;">
+                    <i class="fas fa-plus fs-5"></i>
+                </div>
+                <div>
+                    <h5 class="fw-bold mb-0 text-dark">Add New Domain</h5>
+                    <small class="text-muted">Register custom domain</small>
+                </div>
+            </div>
+            <hr class="text-muted opacity-25">
+            
+            <form action="{{ url_for('admin_domains') }}" method="POST">
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-muted small">Domain Name</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-0"><i class="fas fa-globe text-primary"></i></span>
+                        <input type="text" name="domain_name" class="form-control form-control-custom" placeholder="e.g. techcorp.com" required>
+                    </div>
+                    <small class="text-muted mt-2 d-block" style="font-size: 11px;">Do not include http:// or www.</small>
+                </div>
+                
+                <button type="submit" class="btn btn-primary-gradient w-100 py-3 rounded-3 fw-bold shadow-sm">
+                    <i class="fas fa-save me-1"></i> Register Domain
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Side: Connected Domains List -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+            <div class="p-4 border-bottom bg-light bg-opacity-50">
+                <h5 class="fw-bold mb-0 text-dark">Connected Custom Domains</h5>
+            </div>
+            <div class="p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-custom-header">
+                            <tr>
+                                <th class="ps-4">Domain Name</th>
+                                <th>SPF & DKIM Status</th>
+                                <th>Created Date</th>
+                                <th class="text-end pe-4">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for d in domains %}
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-primary bg-opacity-10 text-primary rounded-3 p-2 me-3">
+                                            <i class="fas fa-globe fs-5"></i>
+                                        </div>
+                                        <div>
+                                            <strong class="text-dark d-block" style="font-size: 15px;">{{ d.domain_name }}</strong>
+                                            <small class="text-muted">MX: {{ d.mx_record }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge badge-soft-success rounded-pill px-3 py-2">
+                                        <i class="fas fa-check-circle me-1"></i> Verified & Active
+                                    </span>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ d.created_at.strftime('%b %d, %Y') }}</small>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <button class="btn btn-light btn-sm rounded-3 text-primary me-1" type="button" data-bs-toggle="collapse" data-bs-target="#dns-info-{{ d.id }}">
+                                        <i class="fas fa-code me-1"></i> DNS Records
+                                    </button>
+                                    <form action="{{ url_for('delete_domain', id=d.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this domain?')">
+                                        <button type="submit" class="btn btn-light btn-sm rounded-3 text-danger" title="Delete Domain">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <!-- Collapsible DNS Records Guide -->
+                            <tr class="collapse" id="dns-info-{{ d.id }}">
+                                <td colspan="4" class="p-4 bg-light">
+                                    <div class="p-3 bg-white rounded-3 border">
+                                        <h6 class="fw-bold text-dark mb-3"><i class="fas fa-shield-halved text-warning me-2"></i> DNS Records to add in your Domain Registrar (Cloudflare, GoDaddy, Namecheap):</h6>
+                                        <div class="row g-2 font-monospace small">
+                                            <div class="col-md-3 text-muted fw-bold">TXT (SPF):</div>
+                                            <div class="col-md-9"><code>{{ d.spf_record }}</code></div>
+
+                                            <div class="col-md-3 text-muted fw-bold">TXT (DKIM):</div>
+                                            <div class="col-md-9 text-truncate"><code>{{ d.dkim_record }}</code></div>
+
+                                            <div class="col-md-3 text-muted fw-bold">TXT (DMARC):</div>
+                                            <div class="col-md-9"><code>{{ d.dmarc_record }}</code></div>
+
+                                            <div class="col-md-3 text-muted fw-bold">MX Record:</div>
+                                            <div class="col-md-9"><code>{{ d.mx_record }}</code></div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-5 text-muted">
+                                    <i class="fas fa-globe fs-1 text-secondary opacity-25 mb-3 d-block"></i>
+                                    No custom domains added yet. Add your company domain on the left.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

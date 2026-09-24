@@ -1,0 +1,68 @@
+/* dashboard.css — Legacy compat shim for old class names used in sub-pages */
+
+/* Map old stat-card → fc-card */
+.stat-card { composes: fc-card; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl); padding: 20px 22px; box-shadow: var(--shadow-sm); transition: all 0.22s ease; }
+.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--border-hover); }
+.stat-icon-wrapper { width: 44px; height: 44px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; }
+.badge-soft-primary { background: rgba(37,99,235,0.1); color: #2563eb; font-weight: 600; }
+.badge-soft-success { background: #ecfdf5; color: #059669; font-weight: 600; }
+.badge-soft-warning { background: #fffbeb; color: #d97706; font-weight: 600; }
+.badge-soft-danger  { background: #fef2f2; color: #dc2626; font-weight: 600; }
+.progress-thin { height: 5px; border-radius: 10px; background: var(--border); overflow: hidden; margin-top: 14px; }
+.progress-thin .progress-bar { border-radius: 10px; height: 100%; }
+
+.table-custom-header th {
+    background: var(--surface-2) !important;
+    color: var(--text-500) !important;
+    font-size: 10.5px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.8px !important;
+    font-weight: 700 !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 11px 16px !important;
+}
+
+.glass-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-sm);
+}
+
+/* FloatChat icon badge compat */
+.floatchat-stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 20px 22px; box-shadow: var(--shadow-sm); transition: all 0.22s ease; position: relative; overflow: hidden; }
+.floatchat-stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--border-hover); }
+.floatchat-icon-badge { width: 44px; height: 44px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 19px; color: #fff !important; transition: transform 0.25s ease; }
+.floatchat-icon-badge i { color: #fff !important; }
+.floatchat-icon-badge.icon-blue   { background: #2563eb; box-shadow: 0 4px 14px rgba(37,99,235,0.35); }
+.floatchat-icon-badge.icon-amber  { background: #d97706; box-shadow: 0 4px 14px rgba(217,119,6,0.35); }
+.floatchat-icon-badge.icon-emerald{ background: #059669; box-shadow: 0 4px 14px rgba(5,150,105,0.35); }
+.floatchat-icon-badge.icon-cyan   { background: #0284c7; box-shadow: 0 4px 14px rgba(2,132,199,0.35); }
+.floatchat-icon-badge.icon-purple { background: #7c3aed; box-shadow: 0 4px 14px rgba(124,58,237,0.35); }
+.floatchat-stat-card:hover .floatchat-icon-badge { transform: scale(1.08) rotate(3deg); }
+
+.floatchat-trend-pill { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; display: inline-flex; align-items: center; gap: 3px; }
+.floatchat-trend-pill.trend-up   { background: #ecfdf5; color: #059669; }
+.floatchat-trend-pill.trend-down { background: #fef2f2; color: #dc2626; }
+.floatchat-trend-pill.trend-neutral { background: var(--surface-2); color: var(--text-500); border: 1px solid var(--border); }
+
+.floatchat-chart-container { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 22px 24px; box-shadow: var(--shadow-sm); }
+.floatchat-activity-card   { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 20px 22px; box-shadow: var(--shadow-sm); }
+.floatchat-activity-item   { padding: 9px 10px; border-radius: 12px; transition: all 0.18s ease; cursor: pointer; }
+.floatchat-activity-item:hover { background: var(--surface-hover); }
+
+.floatchat-tab-pill { font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 8px; border: none; color: var(--text-500); background: transparent; cursor: pointer; transition: all 0.18s ease; }
+.floatchat-tab-pill.active { background: var(--accent); color: #fff; box-shadow: 0 2px 8px rgba(37,99,235,0.3); }
+
+.floatchat-launcher-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); text-decoration: none !important; cursor: pointer; transition: all 0.22s ease; }
+.floatchat-launcher-card:hover { transform: translateY(-2px); background: var(--surface-hover); border-color: var(--border-hover); box-shadow: var(--shadow-md); }
+
+.avatar-circle-sm { width: 30px; height: 30px; min-width: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; }
+
+/* Btn compat */
+.btn-brightlant-gradient { background: linear-gradient(135deg, #2563eb 0%, #0284c7 100%); color: #fff !important; border: none; font-weight: 700; border-radius: 20px; box-shadow: 0 4px 14px rgba(37,99,235,0.3); transition: all 0.2s ease; }
+.btn-brightlant-gradient:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(37,99,235,0.4); color: #fff !important; }
+.btn-primary-gradient { background: linear-gradient(135deg, #2563eb 0%, #0284c7 100%); color: #fff !important; border: none; font-weight: 600; border-radius: 20px; }
+
+.hover-elevate { transition: all 0.2s ease; }
+.hover-elevate:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }

@@ -1,0 +1,371 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* Hover quick-actions on each draft card */
+    .fc-mail-item { position: relative; }
+    .fc-draft-actions {
+        position: absolute; top: 8px; right: 10px;
+        display: flex; gap: 4px; opacity: 0;
+        transform: translateY(-2px); transition: opacity .15s ease, transform .15s ease;
+    }
+    .fc-mail-item:hover .fc-draft-actions,
+    .fc-mail-item.selected .fc-draft-actions { opacity: 1; transform: translateY(0); }
+    .fc-draft-actions .btn {
+        width: 26px; height: 26px; padding: 0; font-size: 11px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 8px;
+    }
+    /* Readiness checklist chips */
+    .fc-ready-strip { display: flex; flex-wrap: wrap; gap: 8px; }
+    .fc-ready-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
+    }
+    .fc-ready-chip.ok  { background: rgba(22,163,74,.10); color: #16a34a; }
+    .fc-ready-chip.bad { background: rgba(220,53,69,.10); color: #dc3545; }
+    /* Keep button icons normal-sized inside empty states
+       (global ".fc-view-empty i" blows icons up to 60px) */
+    .fc-view-empty .btn i { font-size: 1em; opacity: 1; margin: 0 .4rem 0 0; color: inherit; }
+</style>
+<div class="fc-webmail-container">
+    <!-- ══════════════════════════════════════
+         LEFT PANE: Drafts List (380px)
+         ══════════════════════════════════════ -->
+    <div class="fc-webmail-list-pane">
+        <!-- List Header -->
+        <div class="fc-webmail-list-header">
+            <div class="fc-webmail-title-row">
+                <div class="fc-webmail-title">
+                    <i class="fas fa-file-lines text-warning"></i>
+                    <span>Drafts</span>
+                    <span class="badge rounded-pill bg-warning bg-opacity-10 text-warning fw-700" style="font-size: 11px;">
+                        {{ messages|length }} Saved
+                    </span>
+                </div>
+                <a href="{{ url_for('webmail_compose') }}" class="btn btn-primary-gradient btn-sm rounded-pill py-1 px-3 fw-700" style="font-size: 12px;">
+                    <i class="fas fa-pen-to-square me-1"></i> New Mail
+                </a>
+            </div>
+
+            <!-- Search input -->
+            <div class="fc-webmail-search-box">
+                <i class="fas fa-search"></i>
+                <input type="text"
+                       id="draftSearchInput"
+                       class="fc-webmail-search-input"
+                       placeholder="Search drafts..."
+                       value="{{ search_query }}"
+                       autocomplete="off">
+            </div>
+        </div>
+
+        <!-- Scrollable Messages List Items -->
+        <div class="fc-webmail-items-scroll" id="draftListContainer">
+            {% for m in messages %}
+                <div class="fc-mail-item {% if selected_msg and selected_msg.id == m.id %}selected{% endif %}"
+                     id="draft-card-{{ m.id }}"
+                     data-id="{{ m.id }}"
+                     data-recipient="{{ m.recipient_email|lower }}"
+                     data-subject="{{ m.subject|lower }}"
+                     data-body="{{ m.body_html|striptags|lower }}"
+                     onclick="selectDraftEmail({{ m.id }})">
+
+                    <!-- Hover quick-actions -->
+                    <div class="fc-draft-actions">
+                        <a href="{{ url_for('webmail_compose', draft_id=m.id) }}"
+                           class="btn btn-primary-gradient text-white"
+                           title="Continue editing"
+                           onclick="event.stopPropagation();">
+                            <i class="fas fa-pen-to-square"></i>
+                        </a>
+                        <form action="{{ url_for('delete_mail', id=m.id) }}" method="POST"
+                              class="d-inline" onclick="event.stopPropagation();"
+                              onsubmit="return confirm('Discard and delete this draft?');">
+                            <button type="submit" class="btn btn-light text-danger border" title="Discard draft">
+                                <i class="fas fa-trash-can"></i>
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="fc-mail-avatar" style="background: linear-gradient(135deg, #d97706, #b45309);">
+                        <i class="fas fa-pen" style="font-size: 13px;"></i>
+                    </div>
+
+                    <div class="fc-mail-info">
+                        <div class="fc-mail-header-line">
+                            <span class="fc-mail-sender-name">To: {{ m.recipient_email or 'Unspecified' }}</span>
+                            <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
+                                <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-1.5 py-0.5 fw-700" style="font-size: 9.5px;">
+                                    Draft
+                                </span>
+                                <span class="fc-mail-time fc-reltime" data-ts="{{ m.created_at.isoformat() }}">{{ m.created_at.strftime('%b %d') }}</span>
+                            </div>
+                        </div>
+
+                        <div class="fc-mail-subject">
+                            <span>{{ m.subject or '(No Subject)' }}</span>
+                        </div>
+
+                        <div class="fc-mail-snippet">
+                            {{ m.body_html|striptags }}
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="fc-view-empty py-5 px-3 text-center">
+                    <div class="d-inline-flex align-items-center justify-content-center mb-3"
+                         style="width: 64px; height: 64px; border-radius: 20px; background: rgba(217,119,6,.10);">
+                        <i class="fas fa-file-circle-check text-warning" style="font-size: 26px; opacity: 1; margin: 0;"></i>
+                    </div>
+                    <h6 class="fw-800 text-dark mb-1">No drafts yet</h6>
+                    <p class="small text-muted mb-3 mx-auto" style="max-width: 240px;">
+                        Start writing and hit <span class="fw-700 text-dark">Save Draft</span> &mdash; your unsent messages will wait for you right here.
+                    </p>
+                    <a href="{{ url_for('webmail_compose') }}" class="btn btn-primary-gradient rounded-3 px-4 py-2 fw-700 shadow-sm d-inline-flex align-items-center justify-content-center mx-auto">
+                        <i class="fas fa-pen-to-square"></i> Start a Draft
+                    </a>
+                </div>
+                </div>
+            {% endfor %}
+            <div id="noDraftResults" class="text-center py-5 d-none text-muted">
+                <i class="fas fa-magnifying-glass fs-3 mb-2 opacity-30 d-block"></i>
+                <small>No matching drafts found.</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         RIGHT PANE: Draft Reading & Edit View
+         ══════════════════════════════════════ -->
+    <div class="fc-webmail-view-pane" id="draftViewPane">
+        {% if selected_msg %}
+            <!-- Toolbar -->
+            <div class="fc-webmail-view-toolbar" id="draftToolbar">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-3 py-1.5 fw-700 font-mono" style="font-size: 11px;">
+                        <i class="fas fa-file-pen me-1"></i> DRAFT MESSAGE
+                    </span>
+                    <span class="badge bg-light text-muted rounded-pill px-2.5 py-1.5 fw-600 font-mono" style="font-size: 11px;">
+                        Saved Locally
+                    </span>
+                </div>
+
+                <div class="d-flex align-items-center gap-2">
+                    <a href="{{ url_for('webmail_compose', draft_id=selected_msg.id) }}" id="editDraftBtn" class="btn btn-primary-gradient btn-sm rounded-pill px-4 fw-800 shadow-sm">
+                        <i class="fas fa-pen-to-square me-1"></i> Continue Editing
+                    </a>
+                    <form id="draftDeleteForm" action="{{ url_for('delete_mail', id=selected_msg.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Discard and delete this draft?');">
+                        <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-700">
+                            <i class="fas fa-trash-can me-1"></i> Discard
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Scrollable Content -->
+            <div class="fc-webmail-content-scroll" id="draftContentScroll">
+                <!-- Draft Readiness Checklist -->
+                <div class="alert alert-warning border-0 rounded-4 p-3 mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                        <span class="fw-700 text-dark small">
+                            <i class="fas fa-list-check text-warning me-1"></i> Draft readiness
+                            <span class="text-muted fw-600 ms-1" id="draftReadyNote"></span>
+                        </span>
+                        <a href="{{ url_for('webmail_compose', draft_id=selected_msg.id) }}" id="bannerEditBtn" class="btn btn-warning text-dark btn-sm rounded-pill px-3 fw-700">
+                            Open in Editor &rarr;
+                        </a>
+                    </div>
+                    <div class="fc-ready-strip" id="draftReadyStrip"></div>
+                </div>
+
+                <!-- Subject -->
+                <h3 class="fc-view-subject" id="draftSubject">{{ selected_msg.subject or '(No Subject)' }}</h3>
+
+                <!-- Draft Details Card -->
+                <div class="fc-view-sender-card">
+                    <div class="fc-view-avatar" id="draftAvatar" style="background: linear-gradient(135deg, #d97706, #b45309);">
+                        <i class="fas fa-file-pen" style="font-size: 18px;"></i>
+                    </div>
+                    <div class="fc-view-sender-details">
+                        <div class="fc-view-sender-top">
+                            <div class="fc-view-sender-name" id="draftRecipientName">To: {{ selected_msg.recipient_email or 'Unspecified' }}</div>
+                            <div class="fc-view-date" id="draftDate">
+                                <i class="far fa-clock me-1"></i> Saved on {{ selected_msg.created_at.strftime('%b %d, %Y at %H:%M') }}
+                            </div>
+                        </div>
+                        <div class="fc-view-emails-line">
+                            Author: <code>{{ selected_msg.sender_email }}</code>
+                            <span class="mx-1 text-muted">·</span>
+                            Target: <code id="draftRecipientEmail">{{ selected_msg.recipient_email or 'Unspecified' }}</code>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- HTML Email Body -->
+                <div class="fc-view-body-card" id="draftBody">
+                    {{ selected_msg.body_html|safe }}
+                </div>
+            </div>
+        {% else %}
+            <!-- Empty State when nothing selected -->
+            <div class="fc-view-empty text-center">
+                <div class="d-inline-flex align-items-center justify-content-center mb-3"
+                     style="width: 80px; height: 80px; border-radius: 24px; background: rgba(37,99,235,.08);">
+                    <i class="fas fa-file-lines text-primary" style="font-size: 34px; opacity: 1; margin: 0;"></i>
+                </div>
+                <h4 class="fw-800 text-dark mb-1">Select a draft</h4>
+                <p class="small text-muted mx-auto" style="max-width: 320px;">
+                    Choose an unsent draft message from the list to preview its contents and resume editing.
+                </p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Embedded JSON Data for Instant Client-Side Switching -->
+<script id="draftDataJson" type="application/json">
+{
+  {% for m in messages %}
+  "{{ m.id }}": {
+    "id": {{ m.id }},
+    "subject": {{ (m.subject or '(No Subject)')|tojson }},
+    "sender_email": {{ m.sender_email|tojson }},
+    "recipient_email": {{ (m.recipient_email or 'Unspecified')|tojson }},
+    "date_formatted": "{{ m.created_at.strftime('%b %d, %Y at %H:%M') }}",
+    "body_html": {{ m.body_html|tojson }},
+    "edit_url": "{{ url_for('webmail_compose', draft_id=m.id) }}",
+    "delete_url": "{{ url_for('delete_mail', id=m.id) }}"
+  }{% if not loop.last %},{% endif %}
+  {% endfor %}
+}
+</script>
+
+<script>
+let draftEmails = {};
+try {
+    const raw = document.getElementById('draftDataJson');
+    if (raw) draftEmails = JSON.parse(raw.textContent);
+} catch (e) {
+    console.error(e);
+}
+
+function selectDraftEmail(id) {
+    const data = draftEmails[id];
+    if (!data) return;
+
+    document.querySelectorAll('.fc-mail-item').forEach(el => el.classList.remove('selected'));
+    const card = document.getElementById('draft-card-' + id);
+    if (card) card.classList.add('selected');
+
+    if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', '/drafts?msg_id=' + id);
+    }
+
+    const subj = document.getElementById('draftSubject');
+    const recName = document.getElementById('draftRecipientName');
+    const date = document.getElementById('draftDate');
+    const rEmail = document.getElementById('draftRecipientEmail');
+    const body = document.getElementById('draftBody');
+
+    if (subj) subj.innerText = data.subject;
+    if (recName) recName.innerText = 'To: ' + data.recipient_email;
+    if (date) date.innerHTML = '<i class="far fa-clock me-1"></i> Saved on ' + data.date_formatted;
+    if (rEmail) rEmail.innerText = data.recipient_email;
+    if (body) body.innerHTML = data.body_html;
+
+    renderReadiness(data);
+
+    const editBtn = document.getElementById('editDraftBtn');
+    const bannerEditBtn = document.getElementById('bannerEditBtn');
+    const delForm = document.getElementById('draftDeleteForm');
+    if (editBtn) editBtn.href = data.edit_url;
+    if (bannerEditBtn) bannerEditBtn.href = data.edit_url;
+    if (delForm) delForm.action = data.delete_url;
+
+    const scrollEl = document.getElementById('draftContentScroll');
+    if (scrollEl) scrollEl.scrollTop = 0;
+}
+
+// Draft readiness checklist
+function stripHtml(html) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html || '';
+    return (tmp.textContent || tmp.innerText || '').trim();
+}
+function renderReadiness(data) {
+    const strip = document.getElementById('draftReadyStrip');
+    const note = document.getElementById('draftReadyNote');
+    if (!strip) return;
+    const checks = [
+        { label: 'Recipient', ok: !!data.recipient_email && data.recipient_email !== 'Unspecified' },
+        { label: 'Subject',   ok: !!data.subject && data.subject !== '(No Subject)' },
+        { label: 'Message',   ok: stripHtml(data.body_html).length > 0 }
+    ];
+    strip.innerHTML = checks.map(c =>
+        `<span class="fc-ready-chip ${c.ok ? 'ok' : 'bad'}">
+            <i class="fas fa-${c.ok ? 'circle-check' : 'circle-xmark'}"></i> ${c.label}
+        </span>`
+    ).join('');
+    const missing = checks.filter(c => !c.ok).length;
+    if (note) {
+        note.textContent = missing === 0
+            ? '— ready to send \u{1F389}'
+            : `— ${missing} item${missing === 1 ? '' : 's'} still needed before sending`;
+    }
+}
+
+// Relative "time ago" for draft timestamps
+function timeAgo(iso) {
+    const then = new Date(iso);
+    if (isNaN(then)) return null;
+    const secs = Math.floor((Date.now() - then.getTime()) / 1000);
+    if (secs < 60) return 'just now';
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return mins + 'm ago';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    const days = Math.floor(hrs / 24);
+    if (days === 1) return 'yesterday';
+    if (days < 7) return days + 'd ago';
+    return null; // fall back to the printed date
+}
+document.querySelectorAll('.fc-reltime').forEach(el => {
+    const rel = timeAgo(el.getAttribute('data-ts'));
+    if (rel) el.textContent = rel;
+});
+
+// Render readiness for the draft selected on initial page load
+(function initReadiness() {
+    const selected = document.querySelector('.fc-mail-item.selected');
+    if (selected && draftEmails[selected.getAttribute('data-id')]) {
+        renderReadiness(draftEmails[selected.getAttribute('data-id')]);
+    }
+})();
+
+// Live Search Filter
+const searchInput = document.getElementById('draftSearchInput');
+if (searchInput) {
+    searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        let visible = 0;
+        document.querySelectorAll('.fc-mail-item').forEach(card => {
+            const recipient = card.getAttribute('data-recipient') || '';
+            const subject = card.getAttribute('data-subject') || '';
+            const body = card.getAttribute('data-body') || '';
+            if (!q || recipient.includes(q) || subject.includes(q) || body.includes(q)) {
+                card.classList.remove('d-none');
+                visible++;
+            } else {
+                card.classList.add('d-none');
+            }
+        });
+        const noRes = document.getElementById('noDraftResults');
+        if (noRes) {
+            if (visible === 0) noRes.classList.remove('d-none');
+            else noRes.classList.add('d-none');
+        }
+    });
+}
+</script>
+{% endblock %}

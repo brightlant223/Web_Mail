@@ -1,0 +1,272 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="login-split-card row g-0" style="max-width: 1020px; margin: auto;">
+
+    <!-- ═══════════════════════════════════════
+         LEFT PANEL — FloatChat Hero Showcase
+         ═══════════════════════════════════════ -->
+    <div class="col-lg-6 d-none d-lg-flex login-hero">
+        <!-- Top: Logo + AI Badge -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex align-items-center gap-2">
+                <div style="width: 36px; height: 36px; background: var(--accent); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-paper-plane" style="color: #fff; font-size: 15px;"></i>
+                </div>
+                <span style="font-weight: 800; font-size: 18px; color: #fff; letter-spacing: -0.3px;">Brightlant</span>
+            </div>
+            <span style="background: rgba(6,182,212,0.12); border: 1px solid rgba(6,182,212,0.3); border-radius: 20px; padding: 5px 12px; font-size: 10.5px; font-weight: 700; color: #38bdf8; letter-spacing: 0.8px; text-transform: uppercase;">
+                <i class="fas fa-sparkles me-1"></i> Brightlant AI Agents
+            </span>
+        </div>
+
+        <!-- Center: Heading + Preview -->
+        <div class="my-auto">
+            <h1 style="font-size: 30px; font-weight: 900; color: #fff; letter-spacing: -0.5px; line-height: 1.25; margin-bottom: 12px;">
+                The <span class="text-fc-cyan">future</span> of email intelligence
+            </h1>
+            <p style="font-size: 13.5px; color: rgba(255,255,255,0.5); margin-bottom: 24px; max-width: 400px; line-height: 1.6;">
+                Conversations powered by AI, loved by teams. Instant threat defense & priority mailbox automation.
+            </p>
+
+            <!-- AI Preview Box -->
+            <div style="background: rgba(15,23,42,0.65); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 18px;">
+                <div class="row align-items-center g-3">
+                    <!-- Orb + Status -->
+                    <div class="col-5 text-center">
+                        <div class="fc-orb mx-auto mb-2 d-flex align-items-center justify-content-center">
+                            <div class="fc-eq-bars">
+                                <div class="fc-eq-bar"></div>
+                                <div class="fc-eq-bar"></div>
+                                <div class="fc-eq-bar"></div>
+                                <div class="fc-eq-bar"></div>
+                                <div class="fc-eq-bar"></div>
+                            </div>
+                        </div>
+                        <span style="background: rgba(0,0,0,0.5); border: 1px solid rgba(34,197,94,0.35); border-radius: 20px; padding: 3px 10px; font-size: 10px; color: #22c55e; font-weight: 700;">
+                            <i class="fas fa-circle me-1" style="font-size: 5px;"></i> Online
+                        </span>
+                        <div class="d-flex justify-content-center gap-2 mt-2">
+                            <span style="width: 30px; height: 30px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.13); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">
+                                <i class="fas fa-microphone" style="color: #06b6d4;"></i>
+                            </span>
+                            <span style="width: 30px; height: 30px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.13); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">
+                                <i class="fas fa-comment-dots" style="color: #38bdf8;"></i>
+                            </span>
+                            <span style="width: 30px; height: 30px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.13); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">
+                                <i class="fas fa-shield-halved" style="color: #22c55e;"></i>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Chat Mockup -->
+                    <div class="col-7">
+                        <div style="background: #0f172a; border-radius: 12px; padding: 12px; font-size: 11px; border: 1px solid rgba(255,255,255,0.08);">
+                            <div class="d-flex align-items-center justify-content-between pb-2 mb-2" style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                <div class="d-flex align-items-center gap-1.5">
+                                    <div style="width: 22px; height: 22px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff;">S</div>
+                                    <span style="font-weight: 700; color: #fff;">Sarah</span>
+                                    <span style="background: rgba(37,99,235,0.2); color: #38bdf8; border-radius: 4px; padding: 1px 5px; font-size: 8px; font-weight: 700;">AI</span>
+                                </div>
+                                <div class="fc-pulse-dot"></div>
+                            </div>
+                            <div class="d-flex flex-column gap-1.5">
+                                <div style="background: rgba(255,255,255,0.08); border-radius: 8px; padding: 7px 9px; color: #e2e8f0; font-size: 10.5px; max-width: 90%;">
+                                    Hi 👋 I'm Sarah, your AI webmail assistant.
+                                </div>
+                                <div style="background: #0284c7; border-radius: 8px; padding: 7px 9px; color: #fff; font-size: 10.5px; max-width: 82%; align-self: flex-end;">
+                                    My mail #4821 delivery status?
+                                </div>
+                                <div style="background: rgba(255,255,255,0.08); border-radius: 8px; padding: 7px 9px; color: #e2e8f0; font-size: 10.5px; max-width: 90%;">
+                                    Found it — out for delivery, arrives by 6 PM 📦
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Agent Tag -->
+                <div class="text-end mt-2">
+                    <span style="background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.28); border-radius: 20px; padding: 3px 10px; font-size: 10px; color: #f59e0b; font-weight: 600;">
+                        <i class="fas fa-star me-1"></i> Sarah, AI Agent
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer: Stats -->
+        <div class="d-flex align-items-center justify-content-between pt-3" style="border-top: 1px solid rgba(255,255,255,0.08);">
+            <div>
+                <div style="font-size: 18px; font-weight: 800; color: #fff;">12,000+</div>
+                <div style="font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px;">TEAMS</div>
+            </div>
+            <div style="border-left: 1px solid rgba(255,255,255,0.08); padding-left: 20px;">
+                <div style="font-size: 18px; font-weight: 800; color: #fff;">99.9%</div>
+                <div style="font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px;">UPTIME</div>
+            </div>
+            <div style="border-left: 1px solid rgba(255,255,255,0.08); padding-left: 20px;">
+                <div style="font-size: 18px; font-weight: 800; color: #fff;">4.8/5</div>
+                <div style="font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px;">RATED</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════
+         RIGHT PANEL — Login Form
+         ═══════════════════════════════════════ -->
+    <div class="col-lg-6 login-form">
+        <!-- Secure workspace pill -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-lg-none d-flex align-items-center gap-2">
+                <div style="width: 32px; height: 32px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-paper-plane" style="color: #fff; font-size: 13px;"></i>
+                </div>
+                <span style="font-weight: 800; font-size: 16px; color: #fff;">Brightlant</span>
+            </div>
+            <div class="ms-auto">
+                <span style="background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3); border-radius: 20px; padding: 6px 14px; font-size: 11.5px; font-weight: 600; color: #38bdf8;">
+                    <i class="fas fa-shield-halved me-1.5"></i> Secure workspace
+                </span>
+            </div>
+        </div>
+
+        <!-- Greeting -->
+        <div class="mb-4">
+            <h2 style="font-size: 28px; font-weight: 900; color: #fff; letter-spacing: -0.5px; margin-bottom: 6px;">
+                Welcome back 👋
+            </h2>
+            <p style="font-size: 13.5px; color: rgba(255,255,255,0.5); margin: 0;">
+                Sign in and let Sarah handle your conversations.
+            </p>
+        </div>
+
+        <!-- Login Form -->
+        <form action="{{ url_for('login') }}" method="POST">
+
+            <!-- Email -->
+            <div class="mb-3">
+                <label class="d-block mb-1.5" style="font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.75);">Username</label>
+                <div class="login-input-wrap">
+                    <i class="fas fa-envelope login-input-icon"></i>
+                    <input type="email" id="emailInput" name="email" class="login-input" placeholder="shaswat@brightlant.com" required autocomplete="email">
+                </div>
+            </div>
+
+            <!-- Password -->
+            <div class="mb-3">
+                <label class="d-block mb-1.5" style="font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.75);">Password</label>
+                <div class="login-input-wrap">
+                    <i class="fas fa-lock login-input-icon"></i>
+                    <input type="password" id="passwordInput" name="password" class="login-input" placeholder="••••••••" required autocomplete="current-password">
+                    <button type="button" class="login-eye-btn" onclick="togglePass()" tabindex="-1">
+                        <i class="fas fa-eye" id="passIcon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Remember me + Forgot password -->
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <label class="d-flex align-items-center gap-2" style="cursor: pointer; font-size: 13px; color: rgba(255,255,255,0.6); font-weight: 500;">
+                    <input type="checkbox" id="rememberMe" checked style="width: 16px; height: 16px; accent-color: #0284c7; border-radius: 4px; cursor: pointer;">
+                    Keep me signed in
+                </label>
+                <a href="{{ url_for('forgot_password') }}" style="font-size: 13px; font-weight: 600; color: #38bdf8; text-decoration: none;">
+                    Forgot password?
+                </a>
+            </div>
+
+            <!-- Login CTA Button -->
+            <button type="submit" class="btn-login-cta mb-3">
+                Login <i class="fas fa-arrow-right"></i>
+            </button>
+        </form>
+
+        <!-- OR Divider -->
+        <div class="fc-divider my-3">OR</div>
+
+        <!-- SSO Button -->
+        <button type="button" class="btn-login-sso mb-4">
+            <i class="fas fa-shield"></i> Login via SSO
+        </button>
+
+        <!-- Demo Login Box -->
+        <div class="demo-login-box">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="d-flex align-items-center gap-1.5">
+                    <i class="fas fa-bolt" style="font-size: 11px; color: #f59e0b;"></i>
+                    <span style="font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.8px;">Demo Login</span>
+                </div>
+                <span style="font-size: 10px; color: rgba(255,255,255,0.35);">Click to fill credentials</span>
+            </div>
+
+            <div class="row g-2">
+                <!-- Admin Demo -->
+                <div class="col-6">
+                    <div class="demo-account-pill" onclick="quickFill('admin@brightlant.com', 'admin123')">
+                        <div style="width: 26px; height: 26px; background: rgba(37,99,235,0.25); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i class="fas fa-user-shield" style="font-size: 11px; color: #60a5fa;"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <div style="font-size: 12px; font-weight: 700; color: #fff;">Admin</div>
+                            <div style="font-size: 10px; color: rgba(255,255,255,0.4);">admin123</div>
+                        </div>
+                        <span style="background: var(--accent); color: #fff; border-radius: 12px; padding: 2px 9px; font-size: 9.5px; font-weight: 700; margin-left: auto; flex-shrink: 0;">Use</span>
+                    </div>
+                </div>
+                <!-- User Demo -->
+                <div class="col-6">
+                    <div class="demo-account-pill" onclick="quickFill('shaswat@brightlant.com', 'user123')">
+                        <div style="width: 26px; height: 26px; background: rgba(6,182,212,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i class="fas fa-user" style="font-size: 11px; color: #38bdf8;"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <div style="font-size: 12px; font-weight: 700; color: #fff;">Shaswat</div>
+                            <div style="font-size: 10px; color: rgba(255,255,255,0.4);">user123</div>
+                        </div>
+                        <span style="background: var(--accent); color: #fff; border-radius: 12px; padding: 2px 9px; font-size: 9.5px; font-weight: 700; margin-left: auto; flex-shrink: 0;">Use</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-3" style="font-size: 10.5px; color: rgba(255,255,255,0.3);">
+            Demo sign-in — credentials are checked on server.
+        </div>
+        <div class="text-center mt-2">
+            <a href="{{ url_for('landing_page') }}" style="font-size: 12px; font-weight: 600; color: #38bdf8; text-decoration: none;">
+                <i class="fas fa-circle-info me-1"></i> Learn more about Brightlant &amp; install the app
+            </a>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function quickFill(email, pass) {
+    const eIn = document.getElementById('emailInput');
+    const pIn = document.getElementById('passwordInput');
+    eIn.value = email;
+    pIn.value = pass;
+    eIn.focus();
+    eIn.style.borderColor = '#0284c7';
+    pIn.style.borderColor = '#0284c7';
+    setTimeout(() => { eIn.style.borderColor = ''; pIn.style.borderColor = ''; }, 900);
+}
+
+function togglePass() {
+    const inp = document.getElementById('passwordInput');
+    const ico = document.getElementById('passIcon');
+    if (inp.type === 'password') {
+        inp.type = 'text';
+        ico.className = 'fas fa-eye-slash';
+        ico.style.color = '#0284c7';
+    } else {
+        inp.type = 'password';
+        ico.className = 'fas fa-eye';
+        ico.style.color = '';
+    }
+}
+</script>
+{% endblock %}

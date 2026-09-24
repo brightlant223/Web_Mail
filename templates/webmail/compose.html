@@ -1,0 +1,620 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-0.5">
+            <a href="{{ url_for('webmail_inbox') }}" class="btn btn-outline-secondary btn-sm rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" title="Back to Inbox">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h2 class="fw-800 text-dark mb-0" style="font-size: 22px; letter-spacing: -0.3px;">Compose New Message</h2>
+        </div>
+        <p class="text-muted mb-0 small ms-4 ps-2">Dispatched securely via Brightlant SSL SMTP from <strong>{{ current_user.email }}</strong></p>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+        <div class="dropdown">
+            <button class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-600 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-bolt me-1 text-warning"></i> Templates
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 p-2" style="min-width: 250px; max-height: 65vh; overflow-y: auto;">
+                <li><span class="dropdown-header text-uppercase fw-700" style="font-size: 10.5px;"><i class="fas fa-bolt text-warning me-1"></i> Quick Starters</span></li>
+                <li><ul class="list-unstyled mb-0" id="quickTemplateMenu"></ul></li>
+                {% if templates %}
+                <li><hr class="dropdown-divider my-2"></li>
+                <li><span class="dropdown-header text-uppercase fw-700" style="font-size: 10.5px;"><i class="fas fa-folder-open text-primary me-1"></i> My Saved Templates</span></li>
+                {% for t in templates %}
+                <li>
+                    <a class="dropdown-item rounded-2 py-1.5 small fw-600" href="javascript:void(0)" onclick="insertTemplate({{ t.title|tojson }}, {{ t.subject|tojson }}, {{ t.content|tojson }})">
+                        <i class="fas fa-file-lines text-primary me-2"></i> {{ t.title }}
+                    </a>
+                </li>
+                {% endfor %}
+                {% endif %}
+            </ul>
+        </div>
+
+        <button type="button" class="btn btn-warning text-dark fw-700 rounded-pill btn-sm px-3 shadow-xs" data-bs-toggle="modal" data-bs-target="#aiCopilotModal">
+            <i class="fas fa-sparkles me-1 text-primary"></i> AI Email Copilot
+        </button>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-xl-11">
+        <div class="fc-analytics-card p-4 p-md-4">
+            <form action="{{ url_for('webmail_compose') }}" method="POST" enctype="multipart/form-data" id="composeForm">
+                {% if draft_id %}
+                    <input type="hidden" name="draft_id" value="{{ draft_id }}">
+                {% endif %}
+                <input type="hidden" name="message" id="messageBodyHidden">
+
+                <!-- 1. Recipient Row with CC / BCC Expanders -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="form-label fw-700 text-dark small mb-0">To (Recipient)</label>
+                        <div class="d-flex align-items-center gap-2">
+                            {% if all_nexus_users %}
+                            <div class="dropdown">
+                                <button type="button" class="btn btn-link text-fc-blue p-0 text-decoration-none fw-600 dropdown-toggle" style="font-size: 12px;" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-users me-1"></i> Teammates
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 p-2" style="min-width: 240px; max-height: 50vh; overflow-y: auto;">
+                                    <li><span class="dropdown-header text-uppercase fw-700" style="font-size: 10.5px;">Add Brightlant Teammate</span></li>
+                                    {% for u in all_nexus_users %}
+                                        {% if u.email != current_user.email %}
+                                        <li>
+                                            <a class="dropdown-item rounded-2 py-1.5 small fw-600" href="javascript:void(0)" onclick="setRecipient({{ u.email|tojson }})">
+                                                <i class="fas fa-user-circle text-fc-blue me-2"></i> {{ u.name }}
+                                                <span class="text-muted d-block ms-4 font-mono" style="font-size: 10px;">{{ u.email }}</span>
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            <span class="text-muted">·</span>
+                            {% endif %}
+                            <button type="button" class="btn btn-link text-muted p-0 text-decoration-none fw-600" style="font-size: 12px;" onclick="toggleField('ccRow')">
+                                + Cc
+                            </button>
+                            <span class="text-muted">·</span>
+                            <button type="button" class="btn btn-link text-muted p-0 text-decoration-none fw-600" style="font-size: 12px;" onclick="toggleField('bccRow')">
+                                + Bcc
+                            </button>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-0"><i class="fas fa-at text-fc-blue"></i></span>
+                        <input type="email"
+                               name="recipient_email"
+                               id="recipient_email"
+                               class="form-control form-control-custom bg-light border-0 py-2"
+                               placeholder="e.g. client@externalcompany.com or coworker@brightlant.com"
+                               value="{{ to_email }}"
+                               required>
+                    </div>
+                </div>
+
+                <!-- CC Field (Hidden by default) -->
+                <div class="mb-3 d-none" id="ccRow">
+                    <label class="form-label fw-700 text-muted small mb-1">Cc (Carbon Copy)</label>
+                    <input type="text" name="cc_email" class="form-control form-control-custom bg-light border-0 py-2" placeholder="cc@domain.com">
+                </div>
+
+                <!-- BCC Field (Hidden by default) -->
+                <div class="mb-3 d-none" id="bccRow">
+                    <label class="form-label fw-700 text-muted small mb-1">Bcc (Blind Carbon Copy)</label>
+                    <input type="text" name="bcc_email" class="form-control form-control-custom bg-light border-0 py-2" placeholder="bcc@domain.com">
+                </div>
+
+                <!-- Quick Select Employee Badges (moved into the To-field dropdown above) -->
+
+                <!-- 2. Subject Line & Priority -->
+                <div class="row g-2 mb-3">
+                    <div class="col-12 col-md-9">
+                        <label class="form-label fw-700 text-dark small mb-1">Subject</label>
+                        <input type="text"
+                               name="subject"
+                               id="webmail_subject"
+                               class="form-control form-control-custom bg-light border-0 py-2"
+                               placeholder="e.g. Project Delivery & Strategic Proposal for Q4"
+                               value="{{ prefill_subject }}"
+                               required>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label fw-700 text-dark small mb-1">Priority</label>
+                        <select class="form-select bg-light border-0 py-2 form-control-custom fw-600" style="font-size: 13px;" name="priority">
+                            <option value="normal">Normal Priority</option>
+                            <option value="high">🔥 High / Urgent</option>
+                            <option value="low">Low Priority</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 3. Rich WYSIWYG Editor Toolbar -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="form-label fw-700 text-dark small mb-0">Message Body</label>
+                        <div class="d-flex align-items-center gap-1.5">
+                            <button type="button" class="btn btn-sm btn-light border rounded-pill py-0.5 px-2 text-muted fw-600" style="font-size: 11px;" onclick="quickAiAction('professional')">
+                                ✨ Make Professional
+                            </button>
+                            <button type="button" class="btn btn-sm btn-light border rounded-pill py-0.5 px-2 text-muted fw-600" style="font-size: 11px;" onclick="quickAiAction('shorten')">
+                                ✨ Shorten
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Visual Toolbar -->
+                    <div class="p-2 border rounded-top-3 d-flex flex-wrap align-items-center gap-1" style="background: var(--surface-2); border-color: var(--border) !important;">
+                        <button type="button" class="btn btn-sm btn-light border-0 px-2 py-1" onclick="formatDoc('bold')" title="Bold (Ctrl+B)"><i class="fas fa-bold"></i></button>
+                        <button type="button" class="btn btn-sm btn-light border-0 px-2 py-1" onclick="formatDoc('italic')" title="Italic (Ctrl+I)"><i class="fas fa-italic"></i></button>
+                        <button type="button" class="btn btn-sm btn-light border-0 px-2 py-1" onclick="formatDoc('underline')" title="Underline (Ctrl+U)"><i class="fas fa-underline"></i></button>
+                        <button type="button" class="btn btn-sm btn-light border-0 px-2 py-1" onclick="formatDoc('strikeThrough')" title="Strikethrough"><i class="fas fa-strikethrough"></i></button>
+                        <span class="border-end mx-1" style="height: 18px;"></span>
+                        <button type="button" class="btn btn-sm btn-light border-0 px-2 py-1" onclick="formatDoc('formatBlock', '<h3>')" title="Heading"><i class="fas fa-heading"></i></button>
+                        <button type="button" class="btn btn-sm btn-light border-0 px-2 py-1" onclick="formatDoc('insertUnorderedList')" title="Bullet List"><i class="fas fa-list-ul"></i></button>
+                        <button type="button" class="btn btn-sm btn-light border-0 px-2 py-1" onclick="formatDoc('insertOrderedList')" title="Numbered List"><i class="fas fa-list-ol"></i></button>
+                        <button type="button" class="btn btn-sm btn-light border-0 px-2 py-1" onclick="formatDoc('formatBlock', '<blockquote>')" title="Quote"><i class="fas fa-quote-left"></i></button>
+                        <span class="border-end mx-1" style="height: 18px;"></span>
+                        <button type="button" class="btn btn-sm btn-light border-0 px-2 py-1" onclick="insertLinkPrompt()" title="Insert Link"><i class="fas fa-link"></i></button>
+                        <button type="button" class="btn btn-sm btn-light border-0 px-2 py-1" onclick="formatDoc('removeFormat')" title="Clear Formatting"><i class="fas fa-remove-format"></i></button>
+                        <span class="border-end mx-1" style="height: 18px;"></span>
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-sm btn-light border-0 px-2 py-1" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Insert emoji">
+                                <i class="far fa-smile text-warning"></i>
+                            </button>
+                            <div class="dropdown-menu shadow border-0 rounded-3 p-2" style="width: 280px;">
+                                <div class="d-flex flex-wrap gap-1" id="emojiGrid" style="max-height: 200px; overflow-y: auto;"></div>
+                            </div>
+                        </div>
+                        <span class="border-end mx-1" style="height: 18px;"></span>
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-sm btn-light border-0 px-2 py-1 fw-600 font-mono" style="font-size: 12px;" data-bs-toggle="dropdown" aria-expanded="false" title="Insert a variable">
+                                {&nbsp;} <i class="fas fa-caret-down ms-1"></i>
+                            </button>
+                            <ul class="dropdown-menu shadow border-0 rounded-3 p-1" style="min-width: 150px;">
+                                <li><a class="dropdown-item rounded-2 small fw-600 font-mono" href="javascript:void(0)" onclick="insertVariable('{name}')">{name}</a></li>
+                                <li><a class="dropdown-item rounded-2 small fw-600 font-mono" href="javascript:void(0)" onclick="insertVariable('{company}')">{company}</a></li>
+                                <li><a class="dropdown-item rounded-2 small fw-600 font-mono" href="javascript:void(0)" onclick="insertVariable('{date}')">{date}</a></li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Contenteditable Visual Canvas -->
+                    <div id="visualEditor"
+                         class="form-control rounded-top-0 rounded-bottom-3 p-3 text-dark font-sans"
+                         contenteditable="true"
+                         style="min-height: 250px; max-height: 500px; overflow-y: auto; font-size: 14.5px; line-height: 1.7; background: var(--surface); border-color: var(--border) !important; outline: none;">
+                        {% if prefill_body %}
+                            {{ prefill_body|safe }}
+                        {% else %}
+                            <p>Hello,</p>
+                            <p>I hope this email finds you well. </p>
+                            <br>
+                            <div class="signature-block" style="color: var(--text-500); border-top: 1px dashed var(--border); padding-top: 10px; margin-top: 15px;">
+                                {{ default_signature|safe }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-1 px-1">
+                        <small class="text-muted" style="font-size: 11px;">
+                            <i class="fas fa-shield-halved text-success me-1"></i> Sent over Brightlant SSL/TLS &mdash; "Save Draft" keeps a copy you can finish later
+                        </small>
+                        <small class="text-muted fw-600" id="wordCounter" style="font-size: 11px;">0 words · 0 characters</small>
+                    </div>
+                </div>
+
+                <!-- 4. Drag & Drop Attachment Zone -->
+                <div class="mb-4">
+                    <label class="form-label fw-700 text-dark small mb-1">
+                        <i class="fas fa-paperclip text-fc-blue me-1"></i> Attachments
+                    </label>
+                    <div class="p-3 border rounded-3 text-center"
+                         id="dropZone"
+                         style="background: var(--surface-2); border: 2px dashed var(--border) !important; cursor: pointer;"
+                         onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-cloud-arrow-up text-fc-blue fs-4 mb-1 d-block opacity-75"></i>
+                        <span class="fw-700 text-dark" style="font-size: 13px;">Click to browse</span>
+                        <span class="text-muted" style="font-size: 12px;"> or drag & drop documents, images, or PDFs</span>
+                        <input type="file" name="attachments" id="fileInput" class="d-none" multiple onchange="handleFileSelect(this)">
+                    </div>
+                    <div id="fileChipsContainer" class="d-flex flex-wrap gap-2 mt-2"></div>
+                </div>
+
+                <!-- 5. Action Footer Buttons -->
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 pt-3 border-top">
+                    <a href="{{ url_for('webmail_inbox') }}" class="btn btn-light rounded-pill px-4 fw-700">
+                        <i class="fas fa-xmark me-1"></i> Discard
+                    </a>
+
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="submit" name="action" value="draft" class="btn btn-outline-warning rounded-pill px-4 fw-700" onclick="syncEditorBeforeSubmit()">
+                            <i class="fas fa-floppy-disk me-1"></i> Save Draft
+                        </button>
+                        <button type="submit" name="action" value="send" class="btn btn-primary-gradient px-4 rounded-pill fw-800 shadow-sm" onclick="syncEditorBeforeSubmit()">
+                            Send Message <i class="fas fa-paper-plane ms-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: AI Email Copilot -->
+<div class="modal fade" id="aiCopilotModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
+            <div class="modal-header bg-primary text-white border-0 py-3">
+                <h5 class="modal-title fw-bold text-white mb-0">
+                    <i class="fas fa-sparkles me-2"></i> AI Email Copilot Generator
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small mb-3">Provide a brief prompt and tone. AI will generate an executive, high-converting subject and body!</p>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-secondary small mb-1">Email Goal / Topic</label>
+                    <input type="text" id="aiPromptTopic" class="form-control rounded-3" placeholder="e.g. Propose contract renewal with 15% discount for 2027">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-secondary small mb-1">Tone & Voice</label>
+                    <select id="aiToneSelect" class="form-select rounded-3">
+                        <option value="professional">Executive & Professional</option>
+                        <option value="sales">High-Converting Sales Pitch</option>
+                        <option value="friendly">Friendly & Collaborative</option>
+                        <option value="urgent">Urgent Deadline / Action Required</option>
+                    </select>
+                </div>
+
+                <div class="d-flex flex-wrap gap-1.5 mb-2">
+                    <button type="button" class="btn btn-light btn-sm rounded-pill text-muted small" onclick="document.getElementById('aiPromptTopic').value='Follow up on yesterday demo and next steps'">
+                        + Demo Followup
+                    </button>
+                    <button type="button" class="btn btn-light btn-sm rounded-pill text-muted small" onclick="document.getElementById('aiPromptTopic').value='Request meeting availability for project sync'">
+                        + Meeting Request
+                    </button>
+                    <button type="button" class="btn btn-light btn-sm rounded-pill text-muted small" onclick="document.getElementById('aiPromptTopic').value='Notice of scheduled system maintenance this weekend'">
+                        + Service Notice
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer border-0 bg-light rounded-bottom-4">
+                <button type="button" class="btn btn-light rounded-pill px-3" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary-gradient rounded-pill px-4 fw-bold" onclick="generateAiEmail()" data-bs-dismiss="modal">
+                    <i class="fas fa-magic me-1"></i> Generate & Insert
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Shared signature block (reused by all insertion helpers)
+const SIGNATURE_HTML = {{ default_signature|tojson }};
+const SIGNATURE_BLOCK = `<br><div class="signature-block" style="color: var(--text-500); border-top: 1px dashed var(--border); padding-top: 10px; margin-top: 15px;">${SIGNATURE_HTML}</div>`;
+
+// --- Quick Templates: curated professional starters ---
+const QUICK_TEMPLATES = [
+    {
+        id: 'followup', label: 'Follow-up', icon: 'fa-reply', color: 'primary',
+        subject: 'Following up on our conversation',
+        body: `<p>Hi {name},</p>
+<p>I wanted to follow up on our recent conversation regarding {company}. I'd love to hear your thoughts and understand how we can best move things forward.</p>
+<p>Please let me know a convenient time for a quick chat this week.</p>`
+    },
+    {
+        id: 'meeting', label: 'Meeting Request', icon: 'fa-calendar-check', color: 'primary',
+        subject: 'Request for a quick meeting',
+        body: `<p>Hi {name},</p>
+<p>I'd like to schedule a brief 15&ndash;20 minute meeting to discuss how {company} and our team can collaborate.</p>
+<p>Would any of the following work for you?</p>
+<ul><li>Option 1: [day &amp; time]</li><li>Option 2: [day &amp; time]</li></ul>
+<p>Happy to adjust to whatever suits your calendar best.</p>`
+    },
+    {
+        id: 'intro', label: 'Introduction', icon: 'fa-handshake', color: 'primary',
+        subject: 'Introduction — {company}',
+        body: `<p>Hi {name},</p>
+<p>My name is {sender} and I'm reaching out from Brightlant. I came across {company} and believe there's a strong opportunity for us to work together.</p>
+<p>I'd welcome the chance to introduce what we do and explore whether it aligns with your current goals.</p>`
+    },
+    {
+        id: 'thankyou', label: 'Thank You', icon: 'fa-heart', color: 'danger',
+        subject: 'Thank you, {name}',
+        body: `<p>Dear {name},</p>
+<p>Thank you so much for your time and the valuable discussion. It was a pleasure connecting with you and the {company} team.</p>
+<p>I look forward to staying in touch and to the next steps ahead.</p>`
+    },
+    {
+        id: 'proposal', label: 'Proposal', icon: 'fa-file-signature', color: 'success',
+        subject: 'Proposal for your review',
+        body: `<p>Hi {name},</p>
+<p>Thank you for the opportunity to work with {company}. Please find below a summary of our proposal for your review:</p>
+<ul><li><strong>Scope:</strong> [describe scope]</li><li><strong>Timeline:</strong> [timeline]</li><li><strong>Investment:</strong> [pricing]</li></ul>
+<p>I'm happy to walk through any details and answer questions at your convenience.</p>`
+    },
+    {
+        id: 'update', label: 'Project Update', icon: 'fa-diagram-project', color: 'info',
+        subject: 'Project update & next steps',
+        body: `<p>Hi {name},</p>
+<p>Here's a quick update on our progress as of {date}:</p>
+<ul><li><strong>Completed:</strong> [what's done]</li><li><strong>In progress:</strong> [current work]</li><li><strong>Next steps:</strong> [upcoming]</li></ul>
+<p>Let me know if you'd like to review anything in more detail.</p>`
+    },
+    {
+        id: 'reminder', label: 'Gentle Reminder', icon: 'fa-bell', color: 'warning',
+        subject: 'Gentle reminder',
+        body: `<p>Hi {name},</p>
+<p>Just a gentle reminder regarding my previous message. I completely understand things get busy, so no rush at all.</p>
+<p>Whenever you have a moment to share your thoughts, I'd greatly appreciate it.</p>`
+    },
+    {
+        id: 'welcome', label: 'Welcome', icon: 'fa-star', color: 'success',
+        subject: 'Welcome to {company}!',
+        body: `<p>Hi {name},</p>
+<p>Welcome aboard! We're thrilled to have you with {company}. Our team is here to make sure you have everything you need to get started smoothly.</p>
+<p>If you have any questions at all, just reply to this email — we're always happy to help.</p>`
+    }
+];
+
+// Render the quick template items into the Templates dropdown
+(function renderQuickTemplates() {
+    const menu = document.getElementById('quickTemplateMenu');
+    if (!menu) return;
+    QUICK_TEMPLATES.forEach((t, idx) => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.className = 'dropdown-item rounded-2 py-1.5 small fw-600';
+        a.href = 'javascript:void(0)';
+        a.innerHTML = `<i class="fas ${t.icon} text-${t.color} me-2"></i> ${t.label}`;
+        a.onclick = () => insertQuickTemplate(idx);
+        li.appendChild(a);
+        menu.appendChild(li);
+    });
+})();
+
+// Set the recipient email (from the Teammates dropdown)
+function setRecipient(email) {
+    const input = document.getElementById('recipient_email');
+    if (input) input.value = email;
+}
+
+// Insert a quick template into subject + editor
+function insertQuickTemplate(idx) {
+    const t = QUICK_TEMPLATES[idx];
+    if (!t) return;
+    const editor = document.getElementById('visualEditor');
+    const existing = editor ? editor.innerText.replace(/\s+/g, ' ').trim() : '';
+    const meaningful = existing && !/^hello,?\s*i hope this email finds you well\.?/i.test(existing);
+    const apply = () => {
+        const sender = {{ current_user.name|tojson }};
+        const body = t.body.replace(/\{sender\}/g, sender);
+        if (t.subject) document.getElementById('webmail_subject').value = t.subject;
+        if (editor) {
+            editor.innerHTML = body + SIGNATURE_BLOCK;
+            highlightPlaceholders(editor);
+            refreshWordCount();
+        }
+    };
+    if (meaningful) {
+        FCDialog.confirm({
+            title: 'Replace current message?',
+            message: 'This will overwrite what you\'ve written with the "' + t.label + '" template.',
+            confirmText: 'Replace'
+        }).then(ok => { if (ok) apply(); });
+    } else {
+        apply();
+    }
+}
+
+// Wrap {placeholder} tokens in a highlight span so they're easy to spot & fill
+function highlightPlaceholders(editor) {
+    editor.querySelectorAll('p, li, h3, blockquote').forEach(node => {
+        node.innerHTML = node.innerHTML.replace(
+            /\{(name|company|date|sender)\}/g,
+            '<span class="tpl-var" style="background:#fff3cd;color:#8a6d00;border-radius:4px;padding:0 4px;font-weight:600;">{$1}</span>'
+        );
+    });
+}
+
+// --- Caret tracking so toolbar dropdowns insert at the right spot ---
+let savedRange = null;
+(function trackCaret() {
+    const editor = document.getElementById('visualEditor');
+    if (!editor) return;
+    const save = () => {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount && editor.contains(sel.anchorNode)) {
+            savedRange = sel.getRangeAt(0).cloneRange();
+        }
+    };
+    editor.addEventListener('keyup', save);
+    editor.addEventListener('mouseup', save);
+    editor.addEventListener('focusout', save);
+})();
+
+// Live word / character counter
+function refreshWordCount() {
+    const editor = document.getElementById('visualEditor');
+    const out = document.getElementById('wordCounter');
+    if (!editor || !out) return;
+    const text = editor.innerText.trim();
+    const words = text ? text.split(/\s+/).length : 0;
+    out.textContent = `${words} word${words === 1 ? '' : 's'} · ${text.length} characters`;
+}
+(function wordCounter() {
+    const editor = document.getElementById('visualEditor');
+    if (!editor) return;
+    editor.addEventListener('input', refreshWordCount);
+    refreshWordCount();
+})();
+
+function insertAtCaret(html) {
+    const editor = document.getElementById('visualEditor');
+    if (!editor) return;
+    editor.focus();
+    const sel = window.getSelection();
+    if (savedRange) {
+        sel.removeAllRanges();
+        sel.addRange(savedRange);
+    }
+    document.execCommand('insertHTML', false, html);
+    // refresh saved range to sit right after the inserted content
+    if (sel.rangeCount) savedRange = sel.getRangeAt(0).cloneRange();
+    refreshWordCount();
+}
+
+// Insert a variable token at the caret (or append)
+function insertVariable(token) {
+    insertAtCaret(`<span class="tpl-var" style="background:#fff3cd;color:#8a6d00;border-radius:4px;padding:0 4px;font-weight:600;">${token}</span>&nbsp;`);
+}
+
+// --- Emoji picker ---
+const EMOJIS = [
+    '😀','😄','😁','😊','🙂','😉','😍','😘','😎','🤩','🥳','😇',
+    '🙃','😅','😂','🤣','😌','😴','🤔','🤨','😮','😯','😢','😭',
+    '😤','😡','👍','👎','👏','🙌','🙏','👋','🤝','💪','✌️','🤞',
+    '👌','🤙','✅','❌','⭐','🌟','🔥','💯','🎉','🎊','🎈','🎁',
+    '❤️','🧡','💛','💚','💙','💜','💖','💕','📌','📎','📁','📅',
+    '📧','📨','📩','✉️','📞','💬','💡','⚡','🚀','📈','📊','💰',
+    '🏆','🎯','⏰','🕒','📝','✍️','🔔','⚠️','ℹ️','☕','🍕','🎂'
+];
+(function renderEmojiGrid() {
+    const grid = document.getElementById('emojiGrid');
+    if (!grid) return;
+    EMOJIS.forEach(e => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-light border-0 p-1 rounded-2';
+        btn.style.fontSize = '18px';
+        btn.style.lineHeight = '1';
+        btn.textContent = e;
+        btn.onclick = () => insertAtCaret(e);
+        grid.appendChild(btn);
+    });
+})();
+
+// Sync Contenteditable to Hidden Textarea before submit
+function syncEditorBeforeSubmit() {
+    const editor = document.getElementById('visualEditor');
+    const hidden = document.getElementById('messageBodyHidden');
+    if (!editor || !hidden) return;
+    // Strip placeholder highlight styling so the sent email stays clean
+    const clone = editor.cloneNode(true);
+    clone.querySelectorAll('.tpl-var').forEach(span => {
+        span.replaceWith(document.createTextNode(span.textContent));
+    });
+    hidden.value = clone.innerHTML;
+}
+
+// Formatting Actions
+function formatDoc(cmd, val = null) {
+    document.execCommand(cmd, false, val);
+    document.getElementById('visualEditor').focus();
+}
+
+function insertLinkPrompt() {
+    // Save the current selection before the dialog steals focus
+    const sel = window.getSelection();
+    const savedRange = (sel && sel.rangeCount) ? sel.getRangeAt(0).cloneRange() : null;
+    FCDialog.prompt({
+        title: 'Insert link',
+        message: 'Enter the full URL you want to link to.',
+        placeholder: 'https://example.com',
+        icon: 'link'
+    }).then(url => {
+        if (!url) return;
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+        const editor = document.getElementById('visualEditor');
+        editor.focus();
+        if (savedRange) {
+            const s = window.getSelection();
+            s.removeAllRanges(); s.addRange(savedRange);
+        }
+        formatDoc('createLink', url);
+    });
+}
+
+function toggleField(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('d-none');
+}
+
+// Template Insertion (saved templates from library)
+function insertTemplate(title, subject, content) {
+    if (subject) document.getElementById('webmail_subject').value = subject;
+    const editor = document.getElementById('visualEditor');
+    if (editor) {
+        editor.innerHTML = content + SIGNATURE_BLOCK;
+        highlightPlaceholders(editor);
+        refreshWordCount();
+    }
+}
+
+// Quick AI Text Assistant
+function quickAiAction(tone) {
+    const editor = document.getElementById('visualEditor');
+    if (!editor) return;
+    const curr = editor.innerText.trim();
+    if (!curr || curr.length < 5) {
+        alert('Please write a brief draft first so AI can polish it!');
+        return;
+    }
+
+    if (tone === 'professional') {
+        editor.innerHTML = `<p>Dear Colleague,</p><p>I am reaching out regarding our ongoing initiative and wanted to ensure all deliverables remain aligned with expectations. Please let me know your feedback at your earliest convenience.</p>` + SIGNATURE_BLOCK;
+    } else if (tone === 'shorten') {
+        editor.innerHTML = `<p>Hi there,</p><p>Following up on our discussion. Please review the proposal and let me know if you have any questions.</p>` + SIGNATURE_BLOCK;
+    }
+    refreshWordCount();
+}
+
+function generateAiEmail() {
+    const topic = document.getElementById('aiPromptTopic').value.trim() || 'General Business Collaboration';
+    const tone = document.getElementById('aiToneSelect').value;
+
+    fetch('/api/v1/ai-generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ prompt: topic, tone: tone, current_user_name: '{{ current_user.name }}' })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res && res.subject) document.getElementById('webmail_subject').value = res.subject;
+        if (res && res.content) {
+            document.getElementById('visualEditor').innerHTML = res.content + SIGNATURE_BLOCK;
+        }
+        refreshWordCount();
+    })
+    .catch(() => {
+        document.getElementById('webmail_subject').value = topic;
+        document.getElementById('visualEditor').innerHTML = `<p>Hello,</p><p>Regarding: <strong>${topic}</strong>.</p><p>We would appreciate your prompt review and guidance on next steps.</p>` + SIGNATURE_BLOCK;
+        refreshWordCount();
+    });
+}
+
+// File Attachment Chip Visualizer
+function handleFileSelect(input) {
+    const container = document.getElementById('fileChipsContainer');
+    if (!container || !input.files) return;
+    container.innerHTML = '';
+    Array.from(input.files).forEach((file, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'fc-attachment-chip';
+        chip.innerHTML = `
+            <i class="fas fa-file text-fc-blue"></i>
+            <div>
+                <span class="fw-700 text-dark" style="font-size: 12px;">${file.name}</span>
+                <small class="text-muted ms-1">(${(file.size / 1024).toFixed(1)} KB)</small>
+            </div>
+        `;
+        container.appendChild(chip);
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-extrabold text-dark mb-1">
+                <i class="fas fa-tasks text-primary me-2"></i> Team Research Checklist & Deliverables Hub
+            </h2>
+            <p class="text-muted mb-0">6-Phase Development Roadmap & 5 Suggested Team Deliverable Report Generators (Sections 33, 34, 36, 37).</p>
+        </div>
+        <div>
+            <div class="d-flex align-items-center bg-white p-2 px-3 rounded-pill shadow-sm border">
+                <span class="me-2 fw-bold text-dark" style="font-size: 13px;">Progress:</span>
+                <div class="progress me-2" style="width: 120px; height: 10px;">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ progress_pct }}%;"></div>
+                </div>
+                <span class="badge bg-success font-mono">{{ completed_count }}/{{ total_count }} ({{ progress_pct }}%)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Suggested Deliverables Hub (Section 36) -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-white border-0 py-3">
+            <h5 class="fw-bold text-dark mb-0"><i class="fas fa-file-invoice text-warning me-2"></i> Section 36 — Suggested Team Deliverables</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="card border shadow-none rounded-4 p-3 h-100">
+                        <span class="badge bg-primary bg-opacity-10 text-primary w-auto mb-2 fw-bold" style="width: fit-content;">Deliverable 1</span>
+                        <h6 class="fw-bold text-dark">Free VM Comparison</h6>
+                        <small class="text-muted mb-3 d-block">Oracle vs GCP vs AWS vs Azure limits & specs.</small>
+                        <a href="{{ url_for('generate_deliverable_report', deliv_id=1) }}" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill font-bold mt-auto">
+                            <i class="fas fa-file-pdf me-1"></i> Generate Report #1
+                        </a>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border shadow-none rounded-4 p-3 h-100">
+                        <span class="badge bg-warning bg-opacity-10 text-warning w-auto mb-2 fw-bold" style="width: fit-content;">Deliverable 2</span>
+                        <h6 class="fw-bold text-dark">Mail Stack Comparison</h6>
+                        <small class="text-muted mb-3 d-block">Postfix/Dovecot vs Mailcow vs Modoboa vs iRedMail.</small>
+                        <a href="{{ url_for('generate_deliverable_report', deliv_id=2) }}" target="_blank" class="btn btn-outline-warning btn-sm rounded-pill font-bold mt-auto text-dark">
+                            <i class="fas fa-file-pdf me-1"></i> Generate Report #2
+                        </a>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border shadow-none rounded-4 p-3 h-100">
+                        <span class="badge bg-info bg-opacity-10 text-info w-auto mb-2 fw-bold" style="width: fit-content;">Deliverable 3</span>
+                        <h6 class="fw-bold text-dark">Client Compatibility</h6>
+                        <small class="text-muted mb-3 d-block">Webmail, Outlook, Gmail, Thunderbird, Mobile sync.</small>
+                        <a href="{{ url_for('generate_deliverable_report', deliv_id=3) }}" target="_blank" class="btn btn-outline-info btn-sm rounded-pill font-bold mt-auto">
+                            <i class="fas fa-file-pdf me-1"></i> Generate Report #3
+                        </a>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border shadow-none rounded-4 p-3 h-100">
+                        <span class="badge bg-success bg-opacity-10 text-success w-auto mb-2 fw-bold" style="width: fit-content;">Deliverable 4</span>
+                        <h6 class="fw-bold text-dark">Deliverability Benchmark</h6>
+                        <small class="text-muted mb-3 d-block">SPF, DKIM, DMARC, PTR, TLS 1.3, Bounce handling.</small>
+                        <a href="{{ url_for('generate_deliverable_report', deliv_id=4) }}" target="_blank" class="btn btn-outline-success btn-sm rounded-pill font-bold mt-auto">
+                            <i class="fas fa-file-pdf me-1"></i> Generate Report #4
+                        </a>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border shadow-none rounded-4 p-3 h-100">
+                        <span class="badge bg-danger bg-opacity-10 text-danger w-auto mb-2 fw-bold" style="width: fit-content;">Deliverable 5</span>
+                        <h6 class="fw-bold text-dark">Final Production Architecture Specification</h6>
+                        <small class="text-muted mb-3 d-block">Architecture diagram, monthly cost breakdown, security & backup plan.</small>
+                        <a href="{{ url_for('generate_deliverable_report', deliv_id=5) }}" target="_blank" class="btn btn-outline-danger btn-sm rounded-pill font-bold mt-auto">
+                            <i class="fas fa-file-pdf me-1"></i> Generate Report #5
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive 6-Phase Roadmap Checklist (Section 34) -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold text-dark mb-0"><i class="fas fa-list-check text-success me-2"></i> Section 34 — Interactive Team Research Checklist</h5>
+            <small class="text-muted"><i class="fas fa-mouse-pointer me-1"></i> Click checkboxes to persist progress</small>
+        </div>
+        <div class="card-body">
+            <div class="row g-4">
+                {% for phase in range(1, 7) %}
+                    <div class="col-md-6">
+                        <div class="card border shadow-none rounded-4 p-3 h-100">
+                            <h6 class="fw-bold text-primary mb-3">
+                                <span class="badge bg-primary rounded-circle me-1" style="width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center;">{{ phase }}</span>
+                                Phase {{ phase }} Roadmap Tasks
+                            </h6>
+                            <div class="list-group list-group-flush">
+                                {% for item in items if item.phase_number == phase %}
+                                    <div class="list-group-item bg-transparent border-0 px-0 py-1.5 d-flex align-items-center">
+                                        <input type="checkbox" class="form-check-input me-3 rounded-2" style="width: 20px; height: 20px; cursor: pointer;"
+                                               id="item_{{ item.id }}" {% if item.is_completed %}checked{% endif %}
+                                               onchange="toggleChecklistItem({{ item.id }})">
+                                        <label for="item_{{ item.id }}" class="form-check-label text-dark font-500 mb-0 {% if item.is_completed %}text-decoration-line-through text-muted{% endif %}" style="cursor: pointer;">
+                                            {{ item.task_label }}
+                                        </label>
+                                        <span class="badge bg-secondary bg-opacity-10 text-muted ms-auto" style="font-size: 10px;">{{ item.category }}</span>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleChecklistItem(itemId) {
+    fetch('/api/checklist/toggle', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: itemId})
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.status === 'success') {
+            window.location.reload();
+        }
+    });
+}
+</script>
+{% endblock %}

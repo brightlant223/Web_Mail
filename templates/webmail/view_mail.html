@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+    <div>
+        <a href="{{ url_for('webmail_inbox') }}" class="text-primary text-decoration-none small fw-bold mb-2 d-inline-block">&larr; Back to Inbox</a>
+        <h3 class="fw-bolder text-dark mb-1">{{ msg.subject }}</h3>
+        <p class="text-muted mb-0">Folder: <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-3">{{ msg.folder|upper }}</span></p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('reply_mail', id=msg.id) }}" class="btn btn-outline-primary rounded-pill btn-sm fw-bold">
+            <i class="fas fa-reply me-1"></i> Reply
+        </a>
+        <a href="{{ url_for('forward_mail', id=msg.id) }}" class="btn btn-outline-secondary rounded-pill btn-sm fw-bold">
+            <i class="fas fa-share me-1"></i> Forward
+        </a>
+        <form action="{{ url_for('delete_mail', id=msg.id) }}" method="POST" onsubmit="return confirm('Move this email to Trash?')">
+            <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill fw-bold">
+                <i class="fas fa-trash me-1"></i> Delete
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4 bg-white p-4 p-md-5">
+    <!-- Header Details -->
+    <div class="d-flex align-items-center mb-4 pb-4 border-bottom">
+        <img src="https://ui-avatars.com/api/?name={{ msg.sender_name }}&background=6366f1&color=fff&bold=true" width="50" height="50" class="rounded-circle me-3 border" alt="Avatar">
+        <div class="flex-grow-1">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold text-dark mb-0">{{ msg.sender_name }}</h5>
+                <small class="text-muted font-mono">{{ msg.created_at.strftime('%b %d, %Y at %H:%M') }}</small>
+            </div>
+            <small class="text-muted">From: <code class="text-dark">{{ msg.sender_email }}</code> | To: <code class="text-dark">{{ msg.recipient_email }}</code></small>
+        </div>
+    </div>
+
+    <!-- Email HTML Body Content -->
+    <div class="p-3 text-dark leading-relaxed font-sans" style="font-size: 15px; line-height: 1.6; min-height: 150px;">
+        {{ msg.body_html|safe }}
+    </div>
+
+    <!-- Attachments Section -->
+    {% if msg.attachments %}
+        <div class="mt-4 pt-3 border-top">
+            <h6 class="fw-bold text-dark mb-2"><i class="fas fa-paperclip text-secondary me-2"></i> Attachments ({{ msg.attachments|length }})</h6>
+            <div class="d-flex flex-wrap gap-2">
+                {% for att in msg.attachments %}
+                    <div class="p-2 px-3 border rounded-3 bg-light d-flex align-items-center me-2 mb-2">
+                        <i class="fas fa-file-arrow-down text-primary fs-5 me-2"></i>
+                        <div class="me-3">
+                            <span class="fw-bold d-block text-dark" style="font-size: 13px;">{{ att.filename }}</span>
+                            <small class="text-muted" style="font-size: 10px;">{{ (att.file_size / 1024)|round(1) }} KB</small>
+                        </div>
+                        <a href="{{ url_for('download_attachment', id=att.id) }}" class="btn btn-sm btn-primary rounded-circle" title="Download File">
+                            <i class="fas fa-download"></i>
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Footer Reply & Forward Buttons -->
+    <div class="mt-5 pt-4 border-top d-flex gap-2">
+        <a href="{{ url_for('reply_mail', id=msg.id) }}" class="btn btn-primary rounded-pill px-4 fw-bold">
+            <i class="fas fa-reply me-2"></i> Reply to {{ msg.sender_name }}
+        </a>
+        <a href="{{ url_for('forward_mail', id=msg.id) }}" class="btn btn-outline-secondary rounded-pill px-4 fw-bold">
+            <i class="fas fa-share me-2"></i> Forward Message
+        </a>
+    </div>
+</div>
+{% endblock %}

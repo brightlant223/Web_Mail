@@ -1,0 +1,341 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .set-hero {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+        border-radius: 22px; color: #fff; position: relative; overflow: hidden;
+    }
+    .set-hero::after {
+        content: ''; position: absolute; right: -30px; top: -40px; width: 200px; height: 200px;
+        background: radial-gradient(circle, rgba(96,165,250,.28), transparent 70%);
+    }
+    .set-card { border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
+    .set-sec-title { font-size: 12px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase;
+        color: var(--text-500); margin-bottom: 4px; }
+    .set-row { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+    .set-row:last-child { border-bottom: 0; }
+    .set-row .ic { width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center; font-size: 16px;
+        background: var(--surface-2); color: var(--accent); }
+    .set-row h6 { font-weight: 700; font-size: 14px; color: var(--text-900); margin: 0; }
+    .set-row p { font-size: 12.5px; color: var(--text-500); margin: 2px 0 0; }
+
+    .sound-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    .sound-chip {
+        border: 2px solid var(--border); border-radius: 14px; background: var(--surface-2);
+        padding: 14px; cursor: pointer; text-align: center; transition: all .15s ease; position: relative;
+    }
+    .sound-chip:hover { border-color: var(--accent); }
+    .sound-chip.selected { border-color: var(--accent); background: var(--accent-muted, rgba(37,99,235,.1)); }
+    .sound-chip .s-ic { width: 42px; height: 42px; border-radius: 12px; margin: 0 auto 8px;
+        display: flex; align-items: center; justify-content: center; font-size: 18px;
+        background: var(--accent); color: #fff; }
+    .sound-chip .s-name { font-weight: 700; font-size: 13px; color: var(--text-900); }
+    .sound-chip .s-check { position: absolute; top: 8px; right: 8px; color: var(--accent); display: none; }
+    .sound-chip.selected .s-check { display: block; }
+    .sound-chip .s-play { font-size: 11px; color: var(--text-500); margin-top: 4px; }
+
+    .set-nav-card { border: 1px solid var(--border); border-radius: 18px; background: var(--surface);
+        overflow: hidden; position: sticky; top: 20px; }
+    .set-nav-link { display: flex; align-items: center; gap: 10px; padding: 12px 16px; font-size: 13.5px;
+        font-weight: 600; color: var(--text-700); text-decoration: none; border-left: 3px solid transparent; }
+    .set-nav-link:hover { background: var(--surface-2); color: var(--accent); }
+    .set-nav-link.active { border-left-color: var(--accent); color: var(--accent); background: var(--surface-2); }
+
+    .palette-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+    .palette-chip {
+        border: 2px solid var(--border); border-radius: 14px; background: var(--surface-2);
+        padding: 12px; cursor: pointer; text-align: center; transition: all .15s ease; position: relative;
+    }
+    .palette-chip:hover { border-color: var(--accent); }
+    .palette-chip.selected { border-color: var(--accent); }
+    .palette-chip .p-swatch { height: 34px; border-radius: 10px; margin-bottom: 8px; }
+    .palette-chip .p-name { font-weight: 700; font-size: 12.5px; color: var(--text-900); }
+    .palette-chip .p-check { position: absolute; top: 7px; right: 7px; color: #fff; display: none;
+        text-shadow: 0 1px 3px rgba(0,0,0,.4); }
+    .palette-chip.selected .p-check { display: block; }
+
+    .photo-preview { width: 96px; height: 96px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+        display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 30px;
+        color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+        box-shadow: 0 4px 14px var(--accent-muted); border: 3px solid var(--surface); }
+    .photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+</style>
+
+<!-- Hero -->
+<div class="set-hero p-4 mb-4">
+    <div class="d-flex align-items-center gap-3 position-relative" style="z-index:1;">
+        <div class="d-flex align-items-center justify-content-center rounded-4 flex-shrink-0"
+             style="width:54px;height:54px;background:rgba(96,165,250,.2);">
+            <i class="fas fa-sliders fs-3" style="color:#93c5fd;"></i>
+        </div>
+        <div>
+            <h2 class="fw-bolder mb-1">Settings</h2>
+            <p class="text-white-50 mb-0 small">Personalize notifications, sound alerts, appearance and privacy for {{ current_user.email }}.</p>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left nav -->
+    <div class="col-lg-3 d-none d-lg-block">
+        <div class="set-nav-card">
+            <a href="#sec-notif" class="set-nav-link active"><i class="fas fa-bell"></i> Notifications</a>
+            <a href="#sec-sound" class="set-nav-link"><i class="fas fa-music"></i> Sound Alerts</a>
+            <a href="#sec-appearance" class="set-nav-link"><i class="fas fa-palette"></i> Appearance</a>
+            <a href="#sec-photo" class="set-nav-link"><i class="fas fa-camera"></i> Profile Photo</a>
+            <a href="#sec-privacy" class="set-nav-link"><i class="fas fa-shield-halved"></i> Privacy</a>
+            <a href="#sec-about" class="set-nav-link"><i class="fas fa-circle-info"></i> About</a>
+        </div>
+    </div>
+
+    <!-- Right content -->
+    <div class="col-lg-9">
+        <!-- Notifications -->
+        <div class="set-card p-4 mb-4" id="sec-notif">
+            <div class="set-sec-title">Notifications</div>
+            <h5 class="fw-bold text-dark mb-3">How you get alerted</h5>
+            <div class="set-row">
+                <div class="ic"><i class="fas fa-volume-high"></i></div>
+                <div class="flex-grow-1"><h6>Play sound on new email</h6><p>A tone plays whenever a new message lands in your inbox.</p></div>
+                <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="setSoundOn" style="width:2.6em;height:1.4em;"></div>
+            </div>
+            <div class="set-row">
+                <div class="ic"><i class="fas fa-window-restore"></i></div>
+                <div class="flex-grow-1"><h6>In-app toast alerts</h6><p>Show a floating card in the corner when mail arrives.</p></div>
+                <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="setToast" style="width:2.6em;height:1.4em;"></div>
+            </div>
+            <div class="set-row">
+                <div class="ic"><i class="fas fa-desktop"></i></div>
+                <div class="flex-grow-1"><h6>Desktop notifications</h6><p>Native browser pop-ups even when this tab is in the background. <span id="setPermState" class="fw-700"></span></p></div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" id="setPermBtn" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-700 d-none">Enable</button>
+                    <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="setDesktop" style="width:2.6em;height:1.4em;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sound Alerts -->
+        <div class="set-card p-4 mb-4" id="sec-sound">
+            <div class="set-sec-title">Sound Alerts</div>
+            <h5 class="fw-bold text-dark mb-1">Choose your notification sound</h5>
+            <p class="text-muted small mb-3">Pick one of five tones. Tap a card to preview and select it.</p>
+            <div class="sound-grid" id="soundGrid"></div>
+            <div class="d-flex align-items-center gap-3 mt-4">
+                <i class="fas fa-volume-low text-muted"></i>
+                <input type="range" class="form-range flex-grow-1" min="0" max="1" step="0.05" id="setVolume" style="max-width:320px;">
+                <i class="fas fa-volume-high text-muted"></i>
+                <button type="button" class="btn btn-sm btn-light border rounded-pill px-3 fw-700" id="setTestSound">
+                    <i class="fas fa-play me-1"></i> Test
+                </button>
+            </div>
+        </div>
+
+        <!-- Appearance -->
+        <div class="set-card p-4 mb-4" id="sec-appearance">
+            <div class="set-sec-title">Appearance</div>
+            <h5 class="fw-bold text-dark mb-3">Theme</h5>
+            <div class="d-flex flex-wrap gap-2" id="themeChoices">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4 fw-700" data-theme-val="light"><i class="fas fa-sun me-1"></i> Light</button>
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4 fw-700" data-theme-val="dark"><i class="fas fa-moon me-1"></i> Dark</button>
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4 fw-700" data-theme-val="system"><i class="fas fa-circle-half-stroke me-1"></i> System</button>
+            </div>
+
+            <h5 class="fw-bold text-dark mb-1 mt-4">Color theme</h5>
+            <p class="text-muted small mb-3">Pick an accent color combination. Works with both light and dark mode.</p>
+            <div class="palette-grid" id="paletteGrid"></div>
+        </div>
+
+        <!-- Profile Photo -->
+        <div class="set-card p-4 mb-4" id="sec-photo">
+            <div class="set-sec-title">Profile Photo</div>
+            <h5 class="fw-bold text-dark mb-1">Your picture</h5>
+            <p class="text-muted small mb-3">Upload a photo — it shows in the sidebar and top bar. PNG, JPG, GIF or WEBP.</p>
+            <form method="POST" action="{{ url_for('settings_avatar') }}" enctype="multipart/form-data"
+                  class="d-flex flex-wrap align-items-center gap-4">
+                <div class="photo-preview" id="photoPreview">
+                    {% if profile and profile.avatar %}
+                        <img src="{{ url_for('static', filename=profile.avatar) }}" alt="Profile photo">
+                    {% else %}
+                        <span>{{ current_user.name[:2]|upper }}</span>
+                    {% endif %}
+                </div>
+                <div class="flex-grow-1" style="min-width:220px;">
+                    <input type="file" name="avatar" id="avatarInput" accept="image/png,image/jpeg,image/gif,image/webp" class="form-control mb-2" style="max-width:340px;">
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="submit" class="btn btn-sm btn-primary rounded-pill px-4 fw-700">
+                            <i class="fas fa-upload me-1"></i> Upload photo
+                        </button>
+                        {% if profile and profile.avatar %}
+                        <button type="submit" name="action" value="remove" class="btn btn-sm btn-outline-danger rounded-pill px-4 fw-700">
+                            <i class="fas fa-trash me-1"></i> Remove
+                        </button>
+                        {% endif %}
+                    </div>
+                    <p class="text-muted mt-2 mb-0" style="font-size:11.5px;">Recommended: a square image, at least 200×200px.</p>
+                </div>
+            </form>
+        </div>
+
+        <!-- Privacy -->
+        <div class="set-card p-4 mb-4" id="sec-privacy">
+            <div class="set-sec-title">Privacy & Security</div>
+            <h5 class="fw-bold text-dark mb-3">Your account</h5>
+            <div class="set-row">
+                <div class="ic"><i class="fas fa-key"></i></div>
+                <div class="flex-grow-1"><h6>Password &amp; profile</h6><p>Update your password, signature and personal details.</p></div>
+                <a href="{% if current_user.role == 'admin' %}{{ url_for('admin_profile') }}{% else %}{{ url_for('profile') }}{% endif %}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-700">Open</a>
+            </div>
+            <div class="set-row">
+                <div class="ic"><i class="fas fa-bell-slash"></i></div>
+                <div class="flex-grow-1"><h6>Reset notification preferences</h6><p>Restore sound, toast and desktop alerts to their defaults.</p></div>
+                <button type="button" id="setReset" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-700">Reset</button>
+            </div>
+        </div>
+
+        <!-- About -->
+        <div class="set-card p-4" id="sec-about">
+            <div class="set-sec-title">About</div>
+            <h5 class="fw-bold text-dark mb-2">Brightlant Secure Webmail</h5>
+            <p class="text-muted small mb-1">Signed in as <strong>{{ current_user.name }}</strong> ({{ current_user.email }})</p>
+            <p class="text-muted small mb-0">Role: {{ current_user.role|capitalize }} · Preferences are stored locally in this browser.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const prefs = getNotifPrefs();
+    const grid = document.getElementById('soundGrid');
+
+    // Build sound cards
+    Object.keys(NOTIF_SOUNDS).forEach(key => {
+        const s = NOTIF_SOUNDS[key];
+        const chip = document.createElement('div');
+        chip.className = 'sound-chip' + (key === prefs.sound ? ' selected' : '');
+        chip.dataset.key = key;
+        chip.innerHTML = '<i class="fas fa-check-circle s-check"></i>' +
+            '<div class="s-ic"><i class="fas fa-' + s.icon + '"></i></div>' +
+            '<div class="s-name">' + s.label + '</div>' +
+            '<div class="s-play"><i class="fas fa-play me-1"></i>Preview</div>';
+        chip.addEventListener('click', () => {
+            document.querySelectorAll('.sound-chip').forEach(c => c.classList.remove('selected'));
+            chip.classList.add('selected');
+            saveNotifPrefs({ sound: key });
+            playNotifSound(key, parseFloat(volume.value));
+        });
+        grid.appendChild(chip);
+    });
+
+    // Toggles
+    const soundOn = document.getElementById('setSoundOn');
+    const toast = document.getElementById('setToast');
+    const desktop = document.getElementById('setDesktop');
+    const volume = document.getElementById('setVolume');
+    soundOn.checked = prefs.soundOn; toast.checked = prefs.toast; desktop.checked = prefs.desktop;
+    volume.value = prefs.volume;
+
+    soundOn.addEventListener('change', () => saveNotifPrefs({ soundOn: soundOn.checked }));
+    toast.addEventListener('change', () => saveNotifPrefs({ toast: toast.checked }));
+    volume.addEventListener('change', () => { saveNotifPrefs({ volume: parseFloat(volume.value) }); playNotifSound(getNotifPrefs().sound, parseFloat(volume.value)); });
+    document.getElementById('setTestSound').addEventListener('click', () => playNotifSound(getNotifPrefs().sound, parseFloat(volume.value)));
+
+    // Desktop permission handling
+    const permState = document.getElementById('setPermState');
+    const permBtn = document.getElementById('setPermBtn');
+    function refreshPerm() {
+        if (!('Notification' in window)) { permState.textContent = '(not supported)'; desktop.disabled = true; return; }
+        const p = Notification.permission;
+        permState.textContent = p === 'granted' ? '· allowed' : p === 'denied' ? '· blocked in browser' : '';
+        permBtn.classList.toggle('d-none', p === 'granted' || p === 'denied');
+    }
+    refreshPerm();
+    desktop.addEventListener('change', () => {
+        saveNotifPrefs({ desktop: desktop.checked });
+        if (desktop.checked && 'Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission().then(refreshPerm);
+        }
+    });
+    permBtn.addEventListener('click', () => { if ('Notification' in window) Notification.requestPermission().then(refreshPerm); });
+
+    // Theme
+    const themeBtns = document.querySelectorAll('[data-theme-val]');
+    function currentTheme() { return localStorage.getItem('theme') || 'light'; }
+    function markTheme() {
+        const t = currentTheme();
+        themeBtns.forEach(b => {
+            const on = b.dataset.themeVal === t;
+            b.classList.toggle('btn-primary', on);
+            b.classList.toggle('btn-outline-secondary', !on);
+        });
+    }
+    themeBtns.forEach(b => b.addEventListener('click', () => {
+        const val = b.dataset.themeVal;
+        localStorage.setItem('theme', val);
+        let eff = val;
+        if (val === 'system') eff = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', eff);
+        markTheme();
+    }));
+    markTheme();
+
+    // Color palette swatches
+    const PALETTES = [
+        { key: 'ocean',   name: 'Ocean',   from: '#2563eb', to: '#1d4ed8' },
+        { key: 'violet',  name: 'Violet',  from: '#7c3aed', to: '#6d28d9' },
+        { key: 'emerald', name: 'Emerald', from: '#059669', to: '#047857' },
+        { key: 'sunset',  name: 'Sunset',  from: '#ea580c', to: '#c2410c' },
+        { key: 'rose',    name: 'Rose',    from: '#e11d48', to: '#be123c' }
+    ];
+    const paletteGrid = document.getElementById('paletteGrid');
+    const currentPalette = localStorage.getItem('palette') || 'ocean';
+    PALETTES.forEach(p => {
+        const chip = document.createElement('div');
+        chip.className = 'palette-chip' + (p.key === currentPalette ? ' selected' : '');
+        chip.dataset.key = p.key;
+        chip.innerHTML =
+            '<i class="fas fa-check-circle p-check"></i>' +
+            '<div class="p-swatch" style="background:linear-gradient(135deg,' + p.from + ',' + p.to + ');"></div>' +
+            '<div class="p-name">' + p.name + '</div>';
+        chip.addEventListener('click', () => {
+            document.querySelectorAll('.palette-chip').forEach(c => c.classList.remove('selected'));
+            chip.classList.add('selected');
+            localStorage.setItem('palette', p.key);
+            document.documentElement.setAttribute('data-palette', p.key);
+        });
+        paletteGrid.appendChild(chip);
+    });
+
+    // Live preview of a chosen profile photo before upload
+    const avatarInput = document.getElementById('avatarInput');
+    const photoPreview = document.getElementById('photoPreview');
+    if (avatarInput && photoPreview) {
+        avatarInput.addEventListener('change', () => {
+            const file = avatarInput.files && avatarInput.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            photoPreview.innerHTML = '<img src="' + url + '" alt="Preview">';
+        });
+    }
+
+    // Reset
+    document.getElementById('setReset').addEventListener('click', () => {
+        FCDialog.confirm({ message: 'Restore all notification preferences to defaults?', confirmText: 'Reset' }).then(ok => {
+            if (!ok) return;
+            localStorage.removeItem('brightlantNotifPrefs');
+            FCDialog.toast('Notification preferences reset to defaults.', 'success');
+            setTimeout(() => location.reload(), 700);
+        });
+    });
+
+    // Scroll-spy for left nav
+    const navLinks = document.querySelectorAll('.set-nav-link');
+    navLinks.forEach(l => l.addEventListener('click', () => {
+        navLinks.forEach(x => x.classList.remove('active')); l.classList.add('active');
+    }));
+})();
+</script>
+{% endblock %}

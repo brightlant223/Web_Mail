@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bolder text-dark mb-1"><i class="fas fa-people-group text-warning me-2"></i> Shared Team Workspace Feed</h2>
+        <p class="text-muted mb-0">Outlook & Zoho style shared domain mailbox feed for team visibility across custom domain addresses.</p>
+    </div>
+    <a href="{{ url_for('webmail_compose') }}" class="btn btn-primary-gradient rounded-3 fw-bold btn-sm">
+        <i class="fas fa-paper-plane me-1"></i> Send Team Message
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+    <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
+        <strong class="text-dark small"><i class="fas fa-globe text-primary me-1"></i> Domain Shared Activity (All Team Members)</strong>
+        <span class="badge badge-soft-primary rounded-pill px-3">{{ messages|length }} Messages</span>
+    </div>
+
+    <div class="p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-custom-header">
+                    <tr>
+                        <th class="ps-4">Sender</th>
+                        <th>Recipient</th>
+                        <th>Subject Line</th>
+                        <th>Folder</th>
+                        <th class="pe-4 text-end">Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in messages %}
+                    <tr>
+                        <td class="ps-4">
+                            <strong class="text-dark d-block">{{ m.sender_name }}</strong>
+                            <small class="text-muted font-monospace">{{ m.sender_email }}</small>
+                        </td>
+                        <td>
+                            <span class="text-dark font-monospace small">{{ m.recipient_email }}</span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('view_mail', id=m.id) }}" class="text-dark fw-bold text-decoration-none small d-block text-truncate" style="max-width: 280px;">
+                                {{ m.subject }}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="badge {% if m.folder=='inbox' %}badge-soft-success{% else %}badge-soft-primary{% endif %} rounded-pill px-3 py-1">
+                                {{ m.folder|upper }}
+                            </span>
+                        </td>
+                        <td class="pe-4 text-end font-monospace text-muted small">
+                            {{ m.created_at.strftime('%b %d, %H:%M') }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="fas fa-people-roof fs-1 text-secondary opacity-25 mb-3 d-block"></i>
+                            No shared domain messages recorded yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

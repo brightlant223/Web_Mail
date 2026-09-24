@@ -1,0 +1,689 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <div class="fc-health-icon" style="background: rgba(37,99,235,0.1); color: var(--accent);">
+                <i class="fas fa-chart-line fs-5"></i>
+            </div>
+            <h2 class="fw-800 text-dark mb-0" style="font-size: 24px; letter-spacing: -0.4px;">Deliverability Analytics & Insights</h2>
+        </div>
+        <p class="text-muted mb-0 small">Real-time dispatch telemetry, inbox placement rates, and recipient engagement heatmaps.</p>
+    </div>
+
+    <!-- Period Filter Pills & Actions -->
+    <div class="d-flex align-items-center gap-2">
+        <div class="fc-period-pills">
+            <button class="fc-period-pill-btn" onclick="setPeriod(7, this)">7D</button>
+            <button class="fc-period-pill-btn" onclick="setPeriod(14, this)">14D</button>
+            <button class="fc-period-pill-btn active" onclick="setPeriod(30, this)">30D</button>
+            <button class="fc-period-pill-btn" onclick="setPeriod(90, this)">90D</button>
+        </div>
+        <button class="btn btn-outline-primary btn-sm rounded-pill px-3 py-1.5 fw-600" onclick="refreshAnalytics(this)" title="Refresh Telemetry">
+            <i class="fas fa-rotate me-1" id="refreshIcon"></i> Live
+        </button>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     1. TOP 4 EXECUTIVE TELEMETRY KPI CARDS
+     ════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+    <!-- Total Mails Dispatched -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="fc-analytics-card h-100">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted fw-700 text-uppercase" style="font-size: 11px; letter-spacing: 0.8px;">Total Dispatched</span>
+                <span class="fc-metric-delta positive"><i class="fas fa-arrow-up"></i> +14.2%</span>
+            </div>
+            <h2 class="display-6 fw-800 text-dark my-1" id="kpiTotalDispatched">{{ "{:,}".format(total_sent) }}</h2>
+            <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top">
+                <span class="text-muted" style="font-size: 12px;">Active Campaigns</span>
+                <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-2.5 fw-700">{{ total_campaigns }} Active</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deliverability Rate -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="fc-analytics-card h-100">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted fw-700 text-uppercase" style="font-size: 11px; letter-spacing: 0.8px;">Delivery Rate</span>
+                <span class="fc-metric-delta positive"><i class="fas fa-check"></i> Optimal</span>
+            </div>
+            <h2 class="display-6 fw-800 text-fc-blue my-1" id="kpiDeliveryRate">99.8%</h2>
+            <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top">
+                <span class="text-muted" style="font-size: 12px;">Inbox Placement</span>
+                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2.5 fw-700">Primary Inbox</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Average Open Rate -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="fc-analytics-card h-100">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted fw-700 text-uppercase" style="font-size: 11px; letter-spacing: 0.8px;">Open Rate</span>
+                <span class="fc-metric-delta positive"><i class="fas fa-arrow-trend-up"></i> 2.1x Benchmark</span>
+            </div>
+            <h2 class="display-6 fw-800 text-dark my-1" id="kpiOpenRate">{{ open_rate }}%</h2>
+            <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top">
+                <span class="text-muted" style="font-size: 12px;">Verified Engaged</span>
+                <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-2.5 fw-700 font-mono" id="kpiOpenedCount">{{ "{:,}".format(opened_count) }} Opens</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bounce & Spam Rate -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="fc-analytics-card h-100">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted fw-700 text-uppercase" style="font-size: 11px; letter-spacing: 0.8px;">Bounce & Rejection</span>
+                <span class="fc-metric-delta positive" style="color: #059669; background: rgba(5,150,105,0.1);"><i class="fas fa-shield-heart"></i> Low Risk</span>
+            </div>
+            <h2 class="display-6 fw-800 my-1" style="color: #059669;" id="kpiBounceRate">0.2%</h2>
+            <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top">
+                <span class="text-muted" style="font-size: 12px;">Sender Reputation</span>
+                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2.5 fw-700">Score: 99.4/100</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     2. PRIMARY INTERACTIVE THROUGHPUT & TRAFFIC CHART
+     ════════════════════════════════════════════════════════ -->
+<div class="fc-analytics-card mb-4">
+    <div class="fc-chart-box-header">
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <h5 class="fw-800 text-dark mb-0" style="font-size: 17px;">Email Throughput & Engagement Velocity</h5>
+                <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-2.5 py-1 fw-700 font-mono" id="chartDateRangeBadge" style="font-size: 11px;">
+                    Last 30 Days
+                </span>
+            </div>
+            <small class="text-muted">Daily outgoing dispatches vs recipient opens and deliverability performance.</small>
+        </div>
+
+        <!-- Custom Chart Legend -->
+        <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center gap-1.5">
+                <span style="width: 10px; height: 10px; background: #2563eb; border-radius: 50%; display: inline-block;"></span>
+                <span style="font-size: 12px; font-weight: 600; color: var(--text-700);">Dispatched</span>
+            </div>
+            <div class="d-flex align-items-center gap-1.5">
+                <span style="width: 10px; height: 10px; background: #059669; border-radius: 50%; display: inline-block;"></span>
+                <span style="font-size: 12px; font-weight: 600; color: var(--text-700);">Opened & Engaged</span>
+            </div>
+            <div class="d-flex align-items-center gap-1.5">
+                <span style="width: 10px; height: 10px; background: #d97706; border-radius: 50%; display: inline-block;"></span>
+                <span style="font-size: 12px; font-weight: 600; color: var(--text-700);">Filtered / Bounce</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Canvas -->
+    <div style="position: relative; height: 310px; width: 100%;">
+        <canvas id="throughputMainChart"></canvas>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     3. TWO-COLUMN SECONDARY VISUAL CHARTS
+     ════════════════════════════════════════════════════════ -->
+<div class="row g-4 mb-4">
+    <!-- Left: Provider Placement Doughnut Chart -->
+    <div class="col-12 col-lg-5">
+        <div class="fc-analytics-card h-100 d-flex flex-column">
+            <div class="fc-chart-box-header">
+                <div>
+                    <h5 class="fw-800 text-dark mb-0" style="font-size: 16px;">Destination Provider Placement</h5>
+                    <small class="text-muted">Inbox delivery rates by target mail provider</small>
+                </div>
+                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2.5 py-1 fw-700" style="font-size: 11px;">
+                    100% Verified
+                </span>
+            </div>
+
+            <div style="position: relative; height: 210px; display: flex; align-items: center; justify-content: center;">
+                <canvas id="providerDoughnutChart"></canvas>
+            </div>
+
+            <!-- Provider Legend Chips -->
+            <div class="row g-2 mt-auto pt-3 border-top">
+                <div class="col-6">
+                    <div class="p-2 rounded-3" style="background: var(--surface-2); border: 1px solid var(--border);">
+                        <div class="d-flex align-items-center gap-1.5 mb-0.5">
+                            <span style="width: 8px; height: 8px; border-radius: 50%; background: #2563eb;"></span>
+                            <span class="text-muted fw-600" style="font-size: 11px;">Google / Gmail</span>
+                        </div>
+                        <div class="fw-800 text-dark" style="font-size: 14px;">48.2% <small class="text-success fw-600" style="font-size: 10.5px;">(Inbox)</small></div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 rounded-3" style="background: var(--surface-2); border: 1px solid var(--border);">
+                        <div class="d-flex align-items-center gap-1.5 mb-0.5">
+                            <span style="width: 8px; height: 8px; border-radius: 50%; background: #0284c7;"></span>
+                            <span class="text-muted fw-600" style="font-size: 11px;">Microsoft 365</span>
+                        </div>
+                        <div class="fw-800 text-dark" style="font-size: 14px;">28.5% <small class="text-success fw-600" style="font-size: 10.5px;">(Inbox)</small></div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 rounded-3" style="background: var(--surface-2); border: 1px solid var(--border);">
+                        <div class="d-flex align-items-center gap-1.5 mb-0.5">
+                            <span style="width: 8px; height: 8px; border-radius: 50%; background: #7c3aed;"></span>
+                            <span class="text-muted fw-600" style="font-size: 11px;">Apple / iCloud</span>
+                        </div>
+                        <div class="fw-800 text-dark" style="font-size: 14px;">13.8% <small class="text-success fw-600" style="font-size: 10.5px;">(Inbox)</small></div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 rounded-3" style="background: var(--surface-2); border: 1px solid var(--border);">
+                        <div class="d-flex align-items-center gap-1.5 mb-0.5">
+                            <span style="width: 8px; height: 8px; border-radius: 50%; background: #059669;"></span>
+                            <span class="text-muted fw-600" style="font-size: 11px;">Corporate MX</span>
+                        </div>
+                        <div class="fw-800 text-dark" style="font-size: 14px;">9.5% <small class="text-success fw-600" style="font-size: 10.5px;">(Inbox)</small></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Peak Hourly Send Distribution Bar Chart -->
+    <div class="col-12 col-lg-7">
+        <div class="fc-analytics-card h-100 d-flex flex-column">
+            <div class="fc-chart-box-header">
+                <div>
+                    <h5 class="fw-800 text-dark mb-0" style="font-size: 16px;">Recipient Open Times & Peak Engagement</h5>
+                    <small class="text-muted">Hourly engagement distribution (Optimal Dispatch Window: 10 AM & 2 PM)</small>
+                </div>
+                <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-2.5 py-1 fw-700" style="font-size: 11px;">
+                    Peak: 2:30 PM
+                </span>
+            </div>
+
+            <div style="position: relative; height: 260px; width: 100%;">
+                <canvas id="hourlyEngagementChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     4. PROTOCOL & DELIVERABILITY HEALTH STRIP
+     ════════════════════════════════════════════════════════ -->
+<div class="fc-analytics-card mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fas fa-shield-halved text-success fs-5"></i>
+            <h6 class="fw-800 text-dark mb-0">Domain Security & Deliverability Health Status</h6>
+        </div>
+        <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-1 fw-700">
+            <i class="fas fa-circle-check me-1"></i> All Protocols Passed
+        </span>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="fc-health-badge-card">
+                <div class="fc-health-icon" style="background: rgba(5,150,105,0.1); color: #059669;">
+                    <i class="fas fa-fingerprint"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="d-flex align-items-center gap-1.5">
+                        <span class="fw-700 text-dark" style="font-size: 13px;">SPF Validation</span>
+                        <i class="fas fa-check-circle text-success" style="font-size: 11px;"></i>
+                    </div>
+                    <small class="text-muted font-mono d-block text-truncate" style="font-size: 11px;">v=spf1 include:_spf... ~all</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="fc-health-badge-card">
+                <div class="fc-health-icon" style="background: rgba(37,99,235,0.1); color: #2563eb;">
+                    <i class="fas fa-key"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="d-flex align-items-center gap-1.5">
+                        <span class="fw-700 text-dark" style="font-size: 13px;">DKIM Signature</span>
+                        <i class="fas fa-check-circle text-success" style="font-size: 11px;"></i>
+                    </div>
+                    <small class="text-muted font-mono d-block text-truncate" style="font-size: 11px;">2048-bit RSA Encryption</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="fc-health-badge-card">
+                <div class="fc-health-icon" style="background: rgba(124,58,237,0.1); color: #7c3aed;">
+                    <i class="fas fa-shield"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="d-flex align-items-center gap-1.5">
+                        <span class="fw-700 text-dark" style="font-size: 13px;">DMARC Policy</span>
+                        <i class="fas fa-check-circle text-success" style="font-size: 11px;"></i>
+                    </div>
+                    <small class="text-muted font-mono d-block text-truncate" style="font-size: 11px;">p=quarantine; pct=100</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="fc-health-badge-card">
+                <div class="fc-health-icon" style="background: rgba(2,132,199,0.1); color: #0284c7;">
+                    <i class="fas fa-lock"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="d-flex align-items-center gap-1.5">
+                        <span class="fw-700 text-dark" style="font-size: 13px;">TLS Encryption</span>
+                        <i class="fas fa-check-circle text-success" style="font-size: 11px;"></i>
+                    </div>
+                    <small class="text-muted font-mono d-block text-truncate" style="font-size: 11px;">TLS 1.3 Strict Cipher</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     5. DETAILED DISPATCH TELEMETRY LOGS
+     ════════════════════════════════════════════════════════ -->
+<div class="fc-analytics-card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <h5 class="fw-800 text-dark mb-0" style="font-size: 17px;">Dispatch Performance Log</h5>
+            <small class="text-muted">Detailed deliverability scores and recipient engagement by dispatch event.</small>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="input-group input-group-sm" style="width: 220px;">
+                <span class="input-group-text bg-light border-0"><i class="fas fa-search text-muted" style="font-size: 11px;"></i></span>
+                <input type="text" id="logFilterInput" class="form-control bg-light border-0" placeholder="Filter dispatches..." oninput="filterLogs(this.value)">
+            </div>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="dispatchTable">
+            <thead style="background: var(--surface-2); font-size: 11.5px; text-transform: uppercase; color: var(--text-400); letter-spacing: 0.8px;">
+                <tr>
+                    <th class="ps-3 py-2.5">Event / Recipient</th>
+                    <th>Type</th>
+                    <th>Dispatched</th>
+                    <th>Delivery Status</th>
+                    <th>Score</th>
+                    <th class="text-end pe-3">Date</th>
+                </tr>
+            </thead>
+            <tbody style="font-size: 13px;">
+                {% for d in recent_dispatches %}
+                <tr class="dispatch-row">
+                    <td class="ps-3 py-3">
+                        <strong class="text-dark d-block mb-0.5">{{ d.title }}</strong>
+                        <small class="text-muted text-truncate d-block" style="max-width: 320px;">{{ d.subject }}</small>
+                    </td>
+                    <td>
+                        <span class="badge {% if d.type == 'Campaign' %}bg-primary bg-opacity-10 text-primary{% elif d.type == 'Direct SMTP' %}bg-success bg-opacity-10 text-success{% else %}bg-secondary bg-opacity-10 text-secondary{% endif %} rounded-pill px-2.5 py-1 fw-700" style="font-size: 11px;">
+                            {{ d.type }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="fw-700 text-dark">{{ d.sent }}</span>
+                        {% if d.failed > 0 %}
+                            <small class="text-danger">({{ d.failed }} err)</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2.5 py-1 fw-700" style="font-size: 11px;">
+                            <i class="fas fa-check-circle me-1"></i> Delivered
+                        </span>
+                    </td>
+                    <td style="width: 140px;">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fw-700 text-dark" style="font-size: 12px;">{{ d.rate }}</span>
+                            <div class="progress" style="height: 6px; flex: 1; border-radius: 4px; background: rgba(5,150,105,0.15);">
+                                <div class="progress-bar bg-success" style="width: 100%;"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-end pe-3 font-mono text-muted" style="font-size: 12px;">
+                        {{ d.date }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     CHART.JS SCRIPTS & TELEMETRY CONTROLLER
+     ════════════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+// Analytics Datasets for 7D, 14D, 30D, 90D
+const analyticsDatasets = {
+    7: {
+        labels: ['Sep 17', 'Sep 18', 'Sep 19', 'Sep 20', 'Sep 21', 'Sep 22', 'Sep 23'],
+        dispatched: [42, 65, 58, 24, 20, 78, 86],
+        opened:     [38, 56, 52, 22, 19, 72, 80],
+        bounced:    [0, 1, 0, 0, 0, 0, 0],
+        total:      '373',
+        rate:       '99.8%',
+        openRate:   '44.8%',
+        openedCount:'167 Opens',
+        dateRange:  'Last 7 Days (Sep 17 - Sep 23)'
+    },
+    14: {
+        labels: ['Sep 10', 'Sep 11', 'Sep 12', 'Sep 13', 'Sep 14', 'Sep 15', 'Sep 16', 'Sep 17', 'Sep 18', 'Sep 19', 'Sep 20', 'Sep 21', 'Sep 22', 'Sep 23'],
+        dispatched: [48, 55, 62, 38, 18, 15, 60, 42, 65, 58, 24, 20, 78, 86],
+        opened:     [44, 50, 56, 34, 16, 14, 54, 38, 56, 52, 22, 19, 72, 80],
+        bounced:    [1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+        total:      '669',
+        rate:       '99.7%',
+        openRate:   '43.6%',
+        openedCount:'292 Opens',
+        dateRange:  'Last 14 Days (Sep 10 - Sep 23)'
+    },
+    30: {
+        labels: [
+            'Aug 25', 'Aug 27', 'Aug 29', 'Aug 31', 'Sep 02', 'Sep 04', 'Sep 06',
+            'Sep 08', 'Sep 10', 'Sep 12', 'Sep 14', 'Sep 16', 'Sep 18', 'Sep 20', 'Sep 22', 'Sep 23'
+        ],
+        dispatched: [84, 96, 68, 42, 88, 102, 45, 92, 110, 85, 40, 95, 114, 78, 106, 92],
+        opened:     [76, 88, 62, 38, 80, 92, 40, 84, 98, 76, 36, 86, 104, 70, 96, 84],
+        bounced:    [1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0],
+        total:      '{{ "{:,}".format(total_sent) }}',
+        rate:       '99.8%',
+        openRate:   '{{ open_rate }}%',
+        openedCount:'{{ "{:,}".format(opened_count) }} Opens',
+        dateRange:  'Last 30 Days (Aug 25 - Sep 23)'
+    },
+    90: {
+        labels: ['Jul W1', 'Jul W2', 'Jul W3', 'Jul W4', 'Aug W1', 'Aug W2', 'Aug W3', 'Aug W4', 'Sep W1', 'Sep W2', 'Sep W3', 'Sep W4'],
+        dispatched: [320, 365, 290, 410, 440, 380, 490, 420, 510, 480, 530, 495],
+        opened:     [290, 330, 260, 370, 395, 340, 445, 380, 460, 435, 480, 450],
+        bounced:    [2, 3, 1, 2, 2, 1, 3, 2, 1, 2, 1, 1],
+        total:      '4,930',
+        rate:       '99.6%',
+        openRate:   '42.1%',
+        openedCount:'2,075 Opens',
+        dateRange:  'Last 90 Days (Q3 Performance)'
+    }
+};
+
+let throughputChartInstance = null;
+let providerChartInstance = null;
+let hourlyChartInstance = null;
+
+// Initialize on Load
+document.addEventListener('DOMContentLoaded', () => {
+    initThroughputChart(30);
+    initProviderChart();
+    initHourlyChart();
+});
+
+// Period Selector Function
+function setPeriod(days, btn) {
+    document.querySelectorAll('.fc-period-pill-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+
+    const ds = analyticsDatasets[days];
+    if (!ds) return;
+
+    // Update KPI Card Numbers
+    const totEl = document.getElementById('kpiTotalDispatched');
+    const rateEl = document.getElementById('kpiDeliveryRate');
+    const openEl = document.getElementById('kpiOpenRate');
+    const countEl = document.getElementById('kpiOpenedCount');
+    const rangeBadge = document.getElementById('chartDateRangeBadge');
+
+    if (totEl) totEl.innerText = ds.total;
+    if (rateEl) rateEl.innerText = ds.rate;
+    if (openEl) openEl.innerText = ds.openRate;
+    if (countEl) countEl.innerText = ds.openedCount;
+    if (rangeBadge) rangeBadge.innerText = ds.dateRange;
+
+    initThroughputChart(days);
+}
+
+// 1. Throughput Multi-Line Chart
+function initThroughputChart(days) {
+    const canvas = document.getElementById('throughputMainChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (throughputChartInstance) throughputChartInstance.destroy();
+
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const ds = analyticsDatasets[days];
+
+    // Gradients
+    const gradBlue = ctx.createLinearGradient(0, 0, 0, 300);
+    gradBlue.addColorStop(0, dark ? 'rgba(37,99,235,0.35)' : 'rgba(37,99,235,0.18)');
+    gradBlue.addColorStop(0.8, 'rgba(37,99,235,0.01)');
+    gradBlue.addColorStop(1, 'rgba(37,99,235,0)');
+
+    const gradGreen = ctx.createLinearGradient(0, 0, 0, 300);
+    gradGreen.addColorStop(0, dark ? 'rgba(5,150,105,0.30)' : 'rgba(5,150,105,0.14)');
+    gradGreen.addColorStop(0.8, 'rgba(5,150,105,0.01)');
+    gradGreen.addColorStop(1, 'rgba(5,150,105,0)');
+
+    const gridColor = dark ? 'rgba(255,255,255,0.06)' : 'rgba(226,232,240,0.7)';
+    const labelColor = dark ? '#94a3b8' : '#64748b';
+
+    throughputChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ds.labels,
+            datasets: [
+                {
+                    label: 'Dispatched Emails',
+                    data: ds.dispatched,
+                    borderColor: '#2563eb',
+                    backgroundColor: gradBlue,
+                    borderWidth: 2.8,
+                    tension: 0.38,
+                    fill: true,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#2563eb',
+                    pointBorderWidth: 2,
+                    pointRadius: days > 14 ? 3.5 : 5,
+                    pointHoverRadius: 7
+                },
+                {
+                    label: 'Opened & Engaged',
+                    data: ds.opened,
+                    borderColor: '#059669',
+                    backgroundColor: gradGreen,
+                    borderWidth: 2.5,
+                    tension: 0.38,
+                    fill: true,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#059669',
+                    pointBorderWidth: 2,
+                    pointRadius: days > 14 ? 3 : 4.5,
+                    pointHoverRadius: 6.5
+                },
+                {
+                    label: 'Bounces / Rejections',
+                    data: ds.bounced,
+                    borderColor: '#d97706',
+                    borderWidth: 2,
+                    borderDash: [4, 4],
+                    tension: 0.38,
+                    fill: false,
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            hover: {
+                mode: 'index',
+                intersect: false
+            },
+            animation: { duration: 650, easing: 'easeOutQuart' },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: dark ? '#1e293b' : '#0f172a',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    padding: 11,
+                    cornerRadius: 10,
+                    titleFont: { family: 'Inter', size: 12, weight: '700' },
+                    bodyFont:  { family: 'Inter', size: 12.5, weight: '600' }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        color: labelColor,
+                        font: { family: 'Inter', size: days > 14 ? 10.5 : 12, weight: '600' },
+                        maxTicksLimit: days > 14 ? 10 : 7,
+                        padding: 8
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: gridColor, lineWidth: 1 },
+                    ticks: { color: labelColor, font: { family: 'Inter', size: 11.5, weight: '600' }, padding: 8 }
+                }
+            }
+        }
+    });
+}
+
+// 2. Destination Provider Placement Doughnut Chart
+function initProviderChart() {
+    const canvas = document.getElementById('providerDoughnutChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (providerChartInstance) providerChartInstance.destroy();
+
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+    providerChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Google / Gmail', 'Microsoft 365', 'Apple / iCloud', 'Corporate MX'],
+            datasets: [{
+                data: [48.2, 28.5, 13.8, 9.5],
+                backgroundColor: ['#2563eb', '#0284c7', '#7c3aed', '#059669'],
+                borderWidth: dark ? 2 : 2,
+                borderColor: dark ? '#111c35' : '#ffffff',
+                hoverOffset: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '72%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: dark ? '#1e293b' : '#0f172a',
+                    padding: 10, cornerRadius: 8,
+                    callbacks: {
+                        label: function(item) {
+                            return ' ' + item.label + ': ' + item.raw + '% (Inbox)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// 3. Hourly Engagement Bar Chart
+function initHourlyChart() {
+    const canvas = document.getElementById('hourlyEngagementChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (hourlyChartInstance) hourlyChartInstance.destroy();
+
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridColor = dark ? 'rgba(255,255,255,0.06)' : 'rgba(226,232,240,0.7)';
+    const labelColor = dark ? '#94a3b8' : '#64748b';
+
+    const hours = ['8 AM', '9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM', '8 PM'];
+    const opens = [28, 64, 118, 95, 70, 84, 136, 110, 88, 62, 54, 32, 18];
+
+    // Highlight peak hour
+    const bgColors = opens.map(val => val >= 120 ? '#2563eb' : (dark ? 'rgba(37,99,235,0.4)' : 'rgba(37,99,235,0.25)'));
+
+    hourlyChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: hours,
+            datasets: [{
+                label: 'Opens Recorded',
+                data: opens,
+                backgroundColor: bgColors,
+                borderRadius: 6,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: dark ? '#1e293b' : '#0f172a',
+                    padding: 10, cornerRadius: 8,
+                    callbacks: {
+                        label: function(item) {
+                            return ' ' + item.raw + ' Recipient Opens Recorded';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: labelColor, font: { family: 'Inter', size: 10.5, weight: '600' } }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: gridColor },
+                    ticks: { color: labelColor, font: { family: 'Inter', size: 10.5, weight: '600' } }
+                }
+            }
+        }
+    });
+}
+
+// Live Refresh Simulation
+function refreshAnalytics(btn) {
+    const icon = document.getElementById('refreshIcon');
+    if (icon) icon.classList.add('fa-spin');
+    setTimeout(() => {
+        if (icon) icon.classList.remove('fa-spin');
+        initThroughputChart(30);
+        initProviderChart();
+        initHourlyChart();
+    }, 500);
+}
+
+// Filter Dispatch Table
+function filterLogs(val) {
+    const q = val.toLowerCase().trim();
+    document.querySelectorAll('.dispatch-row').forEach(row => {
+        const text = row.innerText.toLowerCase();
+        row.style.display = text.includes(q) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bolder text-dark mb-1">
+                <i class="fas fa-book-open text-primary me-2"></i> Brightlant Webmail — Basic User Guidelines
+            </h2>
+            <p class="text-muted mb-0">Super simple 4-step user guide for sending, receiving, and configuring Brightlant Corporate Webmail.</p>
+        </div>
+        <div class="mt-2 mt-md-0">
+            <a href="{{ url_for('download_guide') }}" target="_blank" class="btn btn-danger btn-sm rounded-pill px-3 py-2 fw-bold shadow-sm">
+                <i class="fas fa-file-pdf me-1.5"></i> Download PDF Guide
+            </a>
+        </div>
+    </div>
+
+    <!-- BASIC TO BASIC STEP-BY-STEP USER GUIDELINES CARDS -->
+    <div class="row g-4 mb-4">
+        <!-- Step 1: Login -->
+        <div class="col-md-6 col-lg-3">
+            <div class="glass-card p-4 h-100 hover-elevate">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="badge bg-primary rounded-circle p-2 fs-6 fw-bold" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">1</span>
+                    <i class="fas fa-right-to-bracket text-primary fs-3"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2">1. Login & Access (लॉगिन करें)</h5>
+                <p class="small text-muted mb-0" style="line-height: 1.6;">
+                    Browser me <code>http://127.0.0.1:5000</code> open karein. Apna email <strong>{{ current_user.email }}</strong> aur password daal kar <strong>Sign In</strong> dabayein.
+                </p>
+            </div>
+        </div>
+
+        <!-- Step 2: Compose & Send -->
+        <div class="col-md-6 col-lg-3">
+            <div class="glass-card p-4 h-100 hover-elevate">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="badge bg-success rounded-circle p-2 fs-6 fw-bold" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">2</span>
+                    <i class="fas fa-paper-plane text-success fs-3"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2">2. Send Mail (ईमेल भेजें)</h5>
+                <p class="small text-muted mb-0" style="line-height: 1.6;">
+                    <strong>Compose New Mail</strong> par click karein. Recipient Email, Subject aur Message likhein. <strong>AI Copilot</strong> se auto text bhi generate kar sakte hain!
+                </p>
+            </div>
+        </div>
+
+        <!-- Step 3: Receive & Sound Alert -->
+        <div class="col-md-6 col-lg-3">
+            <div class="glass-card p-4 h-100 hover-elevate">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="badge bg-info text-dark rounded-circle p-2 fs-6 fw-bold" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">3</span>
+                    <i class="fas fa-bell text-info fs-3"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2">3. Receive Mail (ईमेल प्राप्त करें)</h5>
+                <p class="small text-muted mb-0" style="line-height: 1.6;">
+                    Inbox page par saare incoming mails dikhenge. Naya mail aate hi <strong>Sound Alert (Chime)</strong> aur screen toast notification aayega!
+                </p>
+            </div>
+        </div>
+
+        <!-- Step 4: Test Inbound Mail -->
+        <div class="col-md-6 col-lg-3">
+            <div class="glass-card p-4 h-100 hover-elevate">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="badge bg-warning text-dark rounded-circle p-2 fs-6 fw-bold" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">4</span>
+                    <i class="fas fa-download text-warning fs-3"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2">4. Test Mail (टेस्ट ईमेल)</h5>
+                <p class="small text-muted mb-0" style="line-height: 1.6;">
+                    Inbox me top bar par <strong>📥 Receive Mail Test</strong> button dabayein. Kisi bhi external sender se test mail receive kar ke dekhein.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Port Connection Tester Tool -->
+    <div class="glass-card p-4 mb-4" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); color: #ffffff;">
+        <h5 class="fw-bold mb-2 text-warning"><i class="fas fa-plug me-2"></i> Live Server Port Connection Tester</h5>
+        <p class="text-white-50 mb-3" style="font-size: 13px;">Test reachability of outbound SMTP ports (587 / 465) or inbound IMAP ports (993) to diagnose CGNAT, ISP blocks, or firewall rules.</p>
+        <div class="row g-3 align-items-center">
+            <div class="col-md-5">
+                <input type="text" id="test_host" class="form-control rounded-3 bg-secondary text-white border-0" value="{{ config.smtp_host }}" placeholder="smtp.brightlant.com or smtp.gmail.com">
+            </div>
+            <div class="col-md-3">
+                <select id="test_port" class="form-select rounded-3 bg-secondary text-white border-0">
+                    <option value="587" selected>Port 587 (SMTP STARTTLS)</option>
+                    <option value="465">Port 465 (SMTP SSL/TLS)</option>
+                    <option value="993">Port 993 (IMAP SSL/TLS)</option>
+                    <option value="25">Port 25 (Standard Direct SMTP)</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-warning rounded-pill px-4 fw-bold shadow-sm w-100" onclick="runPortTest()">
+                    <i class="fas fa-bolt me-1"></i> Test Connection Reachability
+                </button>
+            </div>
+        </div>
+        <div id="port_result_box" class="mt-3 d-none">
+            <div id="port_result_alert" class="alert mb-0 rounded-3"></div>
+        </div>
+    </div>
+
+    <!-- Configuration Details Cards -->
+    <div class="row g-4 mb-4">
+        <!-- IMAP Incoming Settings -->
+        <div class="col-md-6">
+            <div class="glass-card h-100 p-4">
+                <h5 class="fw-bold text-dark mb-3"><i class="fas fa-inbox text-primary me-2"></i> Incoming Mail Server (IMAP Settings)</h5>
+                <div class="p-3 bg-light rounded-3 mb-2 d-flex justify-content-between align-items-center">
+                    <span class="text-muted fw-bold">Server Hostname:</span>
+                    <span class="font-mono fw-bold text-primary">{{ config.imap_host }}</span>
+                </div>
+                <div class="p-3 bg-light rounded-3 mb-2 d-flex justify-content-between align-items-center">
+                    <span class="text-muted fw-bold">Port Number:</span>
+                    <span class="font-mono fw-bold text-dark">{{ config.imap_port }}</span>
+                </div>
+                <div class="p-3 bg-light rounded-3 mb-2 d-flex justify-content-between align-items-center">
+                    <span class="text-muted fw-bold">Security Type:</span>
+                    <span class="badge bg-success rounded-pill px-3 py-1.5">{{ config.imap_security }}</span>
+                </div>
+                <div class="p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
+                    <span class="text-muted fw-bold">Authentication:</span>
+                    <span class="font-mono fw-bold text-dark">Email & Password</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SMTP Outgoing Settings -->
+        <div class="col-md-6">
+            <div class="glass-card h-100 p-4">
+                <h5 class="fw-bold text-dark mb-3"><i class="fas fa-paper-plane text-success me-2"></i> Outgoing Mail Server (SMTP Settings)</h5>
+                <div class="p-3 bg-light rounded-3 mb-2 d-flex justify-content-between align-items-center">
+                    <span class="text-muted fw-bold">SMTP Hostname:</span>
+                    <span class="font-mono fw-bold text-success">{{ config.smtp_host }}</span>
+                </div>
+                <div class="p-3 bg-light rounded-3 mb-2 d-flex justify-content-between align-items-center">
+                    <span class="text-muted fw-bold">Port Number:</span>
+                    <span class="font-mono fw-bold text-dark">{{ config.smtp_port }}</span>
+                </div>
+                <div class="p-3 bg-light rounded-3 mb-2 d-flex justify-content-between align-items-center">
+                    <span class="text-muted fw-bold">Encryption Protocol:</span>
+                    <span class="badge bg-info text-dark rounded-pill px-3 py-1.5">{{ config.smtp_security }}</span>
+                </div>
+                <div class="p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
+                    <span class="text-muted fw-bold">Username:</span>
+                    <span class="font-mono text-dark fw-bold">{{ current_user.email }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Instructions Accordion (Step-by-Step Mobile & Outlook Setup) -->
+    <div class="glass-card p-4 mb-4">
+        <h5 class="fw-bold text-dark mb-3"><i class="fas fa-mobile-screen-button me-2 text-warning"></i> Step-by-Step Email Setup Guides for Mobile & Desktop Apps</h5>
+        <div class="accordion" id="clientGuideAccordion">
+            <div class="accordion-item border rounded-3 mb-2">
+                <h2 class="accordion-header" id="headingOutlook">
+                    <button class="accordion-button fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOutlook">
+                        <i class="fab fa-windows me-2 text-primary"></i> Microsoft Outlook 365 / Desktop Setup Guide
+                    </button>
+                </h2>
+                <div id="collapseOutlook" class="accordion-collapse collapse show" data-bs-parent="#clientGuideAccordion">
+                    <div class="accordion-body text-dark font-sans" style="line-height: 1.7;">
+                        <strong>Step 1:</strong> Open Microsoft Outlook -> Click <code>File</code> -> Select <code>Add Account</code>.<br>
+                        <strong>Step 2:</strong> Enter your email (<code>{{ current_user.email }}</code>) -> Select <code>Manual setup or additional server types</code> -> Choose <code>POP or IMAP</code>.<br>
+                        <strong>Step 3:</strong> Incoming mail server: <code>{{ config.imap_host }}</code> (Port 993, SSL/TLS).<br>
+                        <strong>Step 4:</strong> Outgoing mail server (SMTP): <code>{{ config.smtp_host }}</code> (Port 587, STARTTLS).<br>
+                        <strong>Step 5:</strong> Type your account password and click <code>Connect</code>. Setup complete!
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item border rounded-3 mb-2">
+                <h2 class="accordion-header" id="headingGmail">
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGmail">
+                        <i class="fab fa-google me-2 text-danger"></i> Android & iPhone (Gmail App / Apple Mail) Guide
+                    </button>
+                </h2>
+                <div id="collapseGmail" class="accordion-collapse collapse" data-bs-parent="#clientGuideAccordion">
+                    <div class="accordion-body text-dark font-sans" style="line-height: 1.7;">
+                        <strong>Step 1:</strong> Mobile me <code>Gmail App</code> open karein -> Profile picture par click karke <code>Add another account</code> select karein.<br>
+                        <strong>Step 2:</strong> <code>Other</code> option chunein aur apna Brightlant email (<code>{{ current_user.email }}</code>) type karein.<br>
+                        <strong>Step 3:</strong> Account type me <code>Personal (IMAP)</code> select karein aur apna Password daalein.<br>
+                        <strong>Step 4:</strong> Incoming server: <code>{{ config.imap_host }}</code> (Port 993) & Outgoing server: <code>{{ config.smtp_host }}</code> (Port 587).<br>
+                        <strong>Step 5:</strong> <code>Next</code> dabayein. Ab mobile me bhi Brightlant mails chalenge!
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function runPortTest() {
+    const host = document.getElementById('test_host').value;
+    const port = document.getElementById('test_port').value;
+    const box = document.getElementById('port_result_box');
+    const alertBox = document.getElementById('port_result_alert');
+
+    box.classList.remove('d-none');
+    alertBox.className = 'alert alert-info mb-0 rounded-3';
+    alertBox.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i> Testing TCP socket connection to ${host}:${port}...`;
+
+    fetch('/api/test-port', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({host: host, port: port})
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.status === 'success') {
+            alertBox.className = 'alert alert-success mb-0 rounded-3 fw-bold';
+            alertBox.innerHTML = `<i class="fas fa-circle-check me-2"></i> ${data.message}`;
+        } else {
+            alertBox.className = 'alert alert-danger mb-0 rounded-3 fw-bold';
+            alertBox.innerHTML = `<i class="fas fa-circle-xmark me-2"></i> ${data.message}`;
+        }
+    })
+    .catch(err => {
+        alertBox.className = 'alert alert-danger mb-0 rounded-3';
+        alertBox.innerHTML = `<i class="fas fa-triangle-exclamation me-2"></i> Test error: ${err}`;
+    });
+}
+</script>
+{% endblock %}

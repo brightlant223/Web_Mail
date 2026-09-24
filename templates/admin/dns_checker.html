@@ -1,0 +1,308 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .dnsc-combo { position: relative; }
+    .dnsc-input-group { border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+    .dnsc-input-group .form-control,
+    .dnsc-input-group .input-group-text,
+    .dnsc-input-group .btn { height: 44px; font-size: 14px; }
+    .dnsc-input-group .form-control::placeholder { font-weight: 500; }
+    .dnsc-combo-menu {
+        position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30;
+        background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+        box-shadow: 0 12px 34px rgba(0,0,0,.12); padding: 6px; max-height: 260px;
+        overflow-y: auto; display: none;
+    }
+    .dnsc-combo-menu.show { display: block; }
+    .dnsc-combo-item {
+        padding: 9px 12px; border-radius: 10px; cursor: pointer; font-weight: 600;
+        color: var(--text-700); display: flex; align-items: center; gap: 10px;
+    }
+    .dnsc-combo-item:hover, .dnsc-combo-item.active { background: var(--surface-2); }
+    .dnsc-combo-item small { color: var(--text-500); font-weight: 500; }
+
+    .dnsc-gauge { position: relative; width: 132px; height: 132px; flex-shrink: 0; }
+    .dnsc-gauge svg { transform: rotate(-90deg); }
+    .dnsc-gauge-val {
+        position: absolute; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; line-height: 1;
+    }
+    .dnsc-gauge-val b { font-size: 30px; font-weight: 800; color: #fff; }
+    .dnsc-gauge-val span { font-size: 11px; color: rgba(255,255,255,.75); font-weight: 600; }
+
+    .dnsc-card { border: 1px solid var(--border); border-radius: 18px; background: var(--surface); height: 100%; }
+    .dnsc-record {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+        background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+        padding: 10px 12px; word-break: break-all; color: var(--text-700);
+        max-height: 92px; overflow-y: auto;
+    }
+    .dnsc-copy { border: 1px solid var(--border); background: var(--surface); border-radius: 8px;
+        width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; }
+    .dnsc-copy:hover { background: var(--surface-2); }
+    .dnsc-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+        font-weight: 700; padding: 5px 12px; border-radius: 999px; }
+    .dnsc-chip.ok  { background: rgba(22,163,74,.12);  color: #16a34a; }
+    .dnsc-chip.warn{ background: rgba(217,119,6,.12);  color: #d97706; }
+    .dnsc-chip.bad { background: rgba(220,53,69,.12);  color: #dc3545; }
+    .dnsc-skel { background: linear-gradient(90deg,#eef1f6 25%,#e2e7f0 37%,#eef1f6 63%);
+        background-size: 400% 100%; animation: dnsc-sh 1.3s infinite; border-radius: 8px; }
+    @keyframes dnsc-sh { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
+    @media (max-width: 767.98px) {
+        .dnsc-gauge { width: 108px; height: 108px; }
+        .dnsc-gauge-val b { font-size: 24px; }
+    }
+    /* Diagnostic button: comfortable auto width on desktop, full width on small screens */
+    #scanBtn { white-space: nowrap; }
+    @media (max-width: 991.98px) { #scanBtn { width: 100%; } }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bolder text-dark mb-1">DNS &amp; Spam Score Inspector</h2>
+        <p class="text-muted mb-0">Scan real SPF, DKIM, DMARC, and MX records to protect inbox delivery and domain reputation.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Scanner Card -->
+    <div class="col-12">
+        <div class="card p-3 p-md-4 border-0 shadow-lg rounded-4 gradient-card-dark text-white">
+            <div class="row align-items-center g-3">
+                <div class="col-lg-8">
+                    <h5 class="fw-bold mb-2"><i class="fas fa-radar text-warning me-2"></i> Real-time Domain Scanner</h5>
+                    <p class="text-white-50 small mb-3">Pick a connected domain or type any domain to run a full DNS record inspection.</p>
+                    <div class="dnsc-combo">
+                        <div class="input-group input-group-sm dnsc-input-group">
+                            <span class="input-group-text bg-white border-0"><i class="fas fa-globe text-primary"></i></span>
+                            <input type="text" id="domainInput" autocomplete="off" spellcheck="false"
+                                   class="form-control border-0 fw-bold text-dark"
+                                   placeholder="Type or choose a domain, e.g. brightlant.com">
+                            <button class="btn bg-white border-0 text-muted px-3" type="button" id="comboToggle" title="Show connected domains">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                        <div class="dnsc-combo-menu" id="comboMenu">
+                            {% for d in domains %}
+                                <div class="dnsc-combo-item" data-domain="{{ d.domain_name }}">
+                                    <i class="fas fa-circle-nodes text-primary"></i>
+                                    <span>{{ d.domain_name }} <small class="ms-1">connected</small></span>
+                                </div>
+                            {% else %}
+                                <div class="dnsc-combo-item text-muted"><i class="fas fa-circle-info"></i> No connected domains — type one above</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 text-lg-end">
+                    <button class="btn btn-warning text-dark fw-bold rounded-pill px-4 py-2 shadow-sm" id="scanBtn" onclick="runScan()">
+                        <i class="fas fa-circle-play me-2"></i> Run DNS Diagnostic
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error banner -->
+    <div class="col-12 d-none" id="scanError">
+        <div class="alert alert-danger border-0 rounded-4 mb-0 d-flex align-items-center gap-2">
+            <i class="fas fa-triangle-exclamation"></i> <span id="scanErrorMsg"></span>
+        </div>
+    </div>
+
+    <!-- Scan Results -->
+    <div class="col-12 d-none" id="scanResults">
+        <!-- Score summary -->
+        <div class="card border-0 shadow-sm rounded-4 gradient-card-dark text-white mb-4 p-3 p-md-4">
+            <div class="d-flex flex-column flex-md-row align-items-center gap-4">
+                <div class="dnsc-gauge">
+                    <svg width="132" height="132" viewBox="0 0 132 132">
+                        <circle cx="66" cy="66" r="58" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="12"/>
+                        <circle id="gaugeArc" cx="66" cy="66" r="58" fill="none" stroke="#facc15" stroke-width="12"
+                                stroke-linecap="round" stroke-dasharray="364.4" stroke-dashoffset="364.4"
+                                style="transition: stroke-dashoffset .9s ease, stroke .4s ease;"/>
+                    </svg>
+                    <div class="dnsc-gauge-val"><b id="scoreNum">0</b><span>/ 100</span></div>
+                </div>
+                <div class="text-center text-md-start flex-grow-1">
+                    <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-1 flex-wrap">
+                        <h4 class="fw-bold mb-0">Deliverability Score</h4>
+                        <span class="badge bg-warning text-dark rounded-pill px-3 py-2 fw-bold" id="gradeBadge">–</span>
+                    </div>
+                    <p class="text-white-50 mb-2">Results for <span id="scannedDomain" class="text-warning fw-bold"></span></p>
+                    <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-md-start" id="summaryChips"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Record cards -->
+        <div class="row g-4" id="recordCards"></div>
+    </div>
+</div>
+
+<template id="tplRecordCard">
+    <div class="col-md-6 col-xl-4">
+        <div class="dnsc-card p-4 d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <h5 class="fw-bold text-dark mb-0" data-f="title"></h5>
+                    <small class="text-muted" data-f="subtitle"></small>
+                </div>
+                <i class="fs-3" data-f="icon"></i>
+            </div>
+            <span class="dnsc-chip mb-3 align-self-start" data-f="chip"></span>
+            <p class="text-muted small mb-2" data-f="note"></p>
+            <div class="mt-auto">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <small class="fw-bold text-muted text-uppercase" style="font-size:10px;letter-spacing:.5px;">Published record</small>
+                    <button class="dnsc-copy" title="Copy record" data-f="copy"><i class="fas fa-copy text-muted" style="font-size:12px;"></i></button>
+                </div>
+                <div class="dnsc-record" data-f="record"></div>
+            </div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const $ = (id) => document.getElementById(id);
+const domainInput = $('domainInput'), comboMenu = $('comboMenu'), comboToggle = $('comboToggle');
+
+// ---- Searchable combo box ----
+function filterCombo() {
+    const q = domainInput.value.trim().toLowerCase();
+    let any = false;
+    comboMenu.querySelectorAll('.dnsc-combo-item[data-domain]').forEach(it => {
+        const match = it.getAttribute('data-domain').toLowerCase().includes(q);
+        it.style.display = match ? '' : 'none';
+        if (match) any = true;
+    });
+    comboMenu.classList.toggle('show', any);
+}
+domainInput.addEventListener('focus', filterCombo);
+domainInput.addEventListener('input', filterCombo);
+comboToggle.addEventListener('click', () => comboMenu.classList.toggle('show'));
+comboMenu.querySelectorAll('.dnsc-combo-item[data-domain]').forEach(it => {
+    it.addEventListener('click', () => {
+        domainInput.value = it.getAttribute('data-domain');
+        comboMenu.classList.remove('show');
+        runScan();
+    });
+});
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.dnsc-combo')) comboMenu.classList.remove('show');
+});
+domainInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); comboMenu.classList.remove('show'); runScan(); }
+});
+
+// ---- Card config ----
+const CARD_META = {
+    spf:   { title: 'SPF Record',      subtitle: 'Sender Policy Framework',   icon: 'fa-shield' },
+    dkim:  { title: 'DKIM Signature',  subtitle: 'DomainKeys Identified Mail', icon: 'fa-key' },
+    dmarc: { title: 'DMARC Policy',    subtitle: 'Domain-based Authentication',icon: 'fa-lock' },
+    mx:    { title: 'MX Records',      subtitle: 'Mail Exchange Servers',      icon: 'fa-server' },
+    a:     { title: 'A Record',        subtitle: 'IPv4 Host Address',          icon: 'fa-network-wired' },
+};
+
+function stateOf(key, data) {
+    const d = data[key] || {};
+    if (key === 'dmarc' && d.found) {
+        if (d.policy === 'none') return 'warn';
+        return 'ok';
+    }
+    if (key === 'spf' && d.found) return d.strict ? 'ok' : 'warn';
+    if (key === 'a') return d.found ? 'ok' : 'warn'; // A missing is not fatal for auth
+    return d.found ? 'ok' : 'bad';
+}
+function recordText(key, d) {
+    if (!d) return '—';
+    if (key === 'mx') return d.found ? d.records.map(r => `${r.priority}  ${r.host}`).join('\n') : 'No MX records found';
+    if (key === 'a')  return d.found ? d.records.join('\n') : 'No A record found';
+    return d.record || 'No record published';
+}
+
+function renderResults(data) {
+    $('scannedDomain').innerText = data.domain;
+    // Gauge
+    const score = data.score || 0;
+    const arc = $('gaugeArc'), C = 364.4;
+    arc.style.strokeDashoffset = C - (C * score / 100);
+    arc.setAttribute('stroke', score >= 85 ? '#22c55e' : score >= 50 ? '#facc15' : '#f87171');
+    // animate number
+    let cur = 0; const step = Math.max(1, Math.round(score / 24));
+    const timer = setInterval(() => { cur = Math.min(score, cur + step); $('scoreNum').innerText = cur; if (cur >= score) clearInterval(timer); }, 28);
+    const gb = $('gradeBadge'); gb.innerText = data.grade;
+    gb.className = 'badge rounded-pill px-3 py-2 fw-bold ' + (score >= 85 ? 'bg-success' : score >= 50 ? 'bg-warning text-dark' : 'bg-danger');
+
+    // Summary chips
+    const chips = $('summaryChips'); chips.innerHTML = '';
+    ['spf','dkim','dmarc','mx'].forEach(k => {
+        const st = stateOf(k, data);
+        const icon = st === 'ok' ? 'circle-check' : st === 'warn' ? 'triangle-exclamation' : 'circle-xmark';
+        chips.insertAdjacentHTML('beforeend',
+            `<span class="dnsc-chip ${st}" style="background:rgba(255,255,255,.12);color:#fff;">
+                <i class="fas fa-${icon}"></i> ${CARD_META[k].title.split(' ')[0]}</span>`);
+    });
+
+    // Record cards
+    const wrap = $('recordCards'); wrap.innerHTML = '';
+    const tpl = $('tplRecordCard');
+    ['spf','dkim','dmarc','mx','a'].forEach(k => {
+        const meta = CARD_META[k], d = data[k] || {}, st = stateOf(k, d && data);
+        const node = tpl.content.cloneNode(true);
+        const set = (f) => node.querySelector(`[data-f="${f}"]`);
+        set('title').innerText = meta.title;
+        set('subtitle').innerText = meta.subtitle;
+        const iconEl = set('icon');
+        iconEl.className = `fas ${meta.icon} fs-3 ` + (st === 'ok' ? 'text-success' : st === 'warn' ? 'text-warning' : 'text-danger');
+        const chip = set('chip');
+        chip.className = `dnsc-chip mb-3 align-self-start ${st}`;
+        chip.innerHTML = st === 'ok' ? '<i class="fas fa-circle-check"></i> Found & valid'
+                       : st === 'warn' ? '<i class="fas fa-triangle-exclamation"></i> Needs attention'
+                       : '<i class="fas fa-circle-xmark"></i> Missing';
+        set('note').innerText = d.note || '';
+        const txt = recordText(k, d);
+        set('record').innerText = txt;
+        set('copy').addEventListener('click', () => {
+            navigator.clipboard.writeText(txt).then(() => {
+                const i = set('copy').querySelector('i');
+                i.className = 'fas fa-check text-success'; i.style.fontSize = '12px';
+                setTimeout(() => { i.className = 'fas fa-copy text-muted'; i.style.fontSize = '12px'; }, 1200);
+            });
+        });
+        wrap.appendChild(node);
+    });
+
+    $('scanResults').classList.remove('d-none');
+    $('scanResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function runScan() {
+    const domain = domainInput.value.trim();
+    $('scanError').classList.add('d-none');
+    if (!domain) { showError('Please enter or choose a domain first.'); return; }
+
+    const btn = $('scanBtn'), original = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Scanning live records...';
+    btn.disabled = true;
+    try {
+        const res = await fetch('/admin/dns-checker/scan?domain=' + encodeURIComponent(domain));
+        const data = await res.json();
+        if (!res.ok || data.error) { showError(data.error || 'Scan failed. Try again.'); }
+        else renderResults(data);
+    } catch (e) {
+        showError('Network error while scanning. Check your connection and retry.');
+    } finally {
+        btn.innerHTML = original; btn.disabled = false;
+    }
+}
+function showError(msg) {
+    $('scanErrorMsg').innerText = msg;
+    $('scanError').classList.remove('d-none');
+    $('scanResults').classList.add('d-none');
+}
+</script>
+{% endblock %}

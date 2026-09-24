@@ -1,0 +1,292 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .sc-hero {
+        background: linear-gradient(135deg, #0f766e 0%, #115e59 45%, #1e3a8a 100%);
+        border-radius: 22px; color: #fff; position: relative; overflow: hidden;
+    }
+    .sc-hero::after {
+        content: ''; position: absolute; right: -40px; top: -50px; width: 220px; height: 220px;
+        background: radial-gradient(circle, rgba(45,212,191,.28), transparent 70%);
+    }
+    .sc-card { border: 1px solid var(--border); border-radius: 20px; background: var(--surface); }
+    .sc-input, .sc-textarea {
+        background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;
+        color: var(--text-900); width: 100%; padding: 12px 14px; font-size: 14px;
+    }
+    .sc-input:focus, .sc-textarea:focus {
+        outline: none; border-color: var(--accent); box-shadow: 0 0 0 .2rem rgba(37,99,235,.2);
+    }
+    .sc-textarea { min-height: 220px; resize: vertical; font-family: ui-monospace, Menlo, monospace; line-height: 1.5; }
+
+    .sc-gauge { position: relative; width: 150px; height: 150px; flex-shrink: 0; }
+    .sc-gauge svg { transform: rotate(-90deg); }
+    .sc-gauge-val { position: absolute; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; line-height: 1; }
+    .sc-gauge-val b { font-size: 34px; font-weight: 800; color: #fff; }
+    .sc-gauge-val span { font-size: 11px; color: rgba(255,255,255,.75); font-weight: 600; }
+
+    .sc-finding { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px;
+        border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin-bottom: 10px; }
+    .sc-finding .ic { width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center; font-size: 13px; }
+    .sc-finding.ok  .ic { background: rgba(22,163,74,.12);  color: #16a34a; }
+    .sc-finding.warn .ic{ background: rgba(217,119,6,.12);  color: #d97706; }
+    .sc-finding.bad .ic { background: rgba(220,53,69,.12);  color: #dc3545; }
+    .sc-finding-title { font-weight: 700; font-size: 13.5px; color: var(--text-900); }
+    .sc-finding-desc  { font-size: 12.5px; color: var(--text-500); }
+    .sc-finding .pts { margin-left: auto; font-size: 12px; font-weight: 800; }
+    .sc-finding.ok .pts { color: #16a34a; }
+    .sc-finding.warn .pts, .sc-finding.bad .pts { color: #dc3545; }
+
+    .sc-metric { text-align: center; padding: 12px; border: 1px solid var(--border);
+        border-radius: 14px; background: var(--surface-2); }
+    .sc-metric b { display: block; font-size: 20px; font-weight: 800; color: var(--text-900); }
+    .sc-metric small { font-size: 11px; color: var(--text-500); font-weight: 600; }
+
+    .sc-cat-title { font-size: 12px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase;
+        color: var(--text-500); margin: 18px 0 10px; }
+</style>
+
+<!-- Hero header -->
+<div class="sc-hero p-4 mb-4">
+    <div class="d-flex align-items-center gap-3 position-relative" style="z-index:1;">
+        <div class="d-flex align-items-center justify-content-center rounded-4 flex-shrink-0"
+             style="width:56px;height:56px;background:rgba(45,212,191,.18);">
+            <i class="fas fa-shield-virus text-info fs-3" style="color:#5eead4 !important;"></i>
+        </div>
+        <div>
+            <h2 class="fw-bolder mb-1">Spam Score &amp; Content Analyzer</h2>
+            <p class="text-white-50 mb-0 small">Check your subject and body for spam-filter triggers before you hit send — score updates live as you type.</p>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left: content inputs -->
+    <div class="col-lg-6">
+        <div class="sc-card p-4">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="fw-bold text-dark mb-0"><i class="fas fa-pen-nib text-primary me-2"></i>Email content</h5>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="bulkMode">
+                    <label class="form-check-label small text-muted fw-600" for="bulkMode">Bulk / marketing</label>
+                </div>
+            </div>
+
+            <label class="form-label fw-bold text-muted small">Subject line</label>
+            <input type="text" id="scSubject" class="sc-input mb-3" placeholder="Your email subject…"
+                   value="{{ last_sent.subject if last_sent else '' }}">
+
+            <label class="form-label fw-bold text-muted small">From / sender name</label>
+            <input type="text" id="scFrom" class="sc-input mb-3" placeholder="e.g. Brightlant Team"
+                   value="{{ last_sent.sender_email if last_sent else '' }}">
+
+            <label class="form-label fw-bold text-muted small">Email body (text or HTML)</label>
+            <textarea id="scBody" class="sc-textarea" placeholder="Paste your email body here…">{{ last_sent.body_html if last_sent else '' }}</textarea>
+
+            <div class="d-flex flex-wrap gap-2 mt-3">
+                <button class="btn btn-primary-gradient rounded-3 px-4 fw-bold flex-grow-1" onclick="analyze()">
+                    <i class="fas fa-gauge-high me-1"></i> Analyze now
+                </button>
+                <button class="btn btn-light border rounded-3 px-3 fw-bold" onclick="loadSample()" title="Load a spammy example">
+                    <i class="fas fa-flask me-1"></i> Sample
+                </button>
+                <button class="btn btn-light border rounded-3 px-3 fw-bold" onclick="clearAll()" title="Clear">
+                    <i class="fas fa-eraser"></i>
+                </button>
+            </div>
+            <p class="text-muted mb-0 mt-2" style="font-size:11px;">
+                Heuristic check (caps, trigger words, links, formatting, compliance). It mirrors common spam-filter rules — not a guarantee, but a strong pre-flight signal.
+            </p>
+        </div>
+    </div>
+
+    <!-- Right: score + findings -->
+    <div class="col-lg-6">
+        <!-- Score card -->
+        <div class="sc-card p-4 mb-4 sc-hero" style="border:0;">
+            <div class="d-flex flex-column flex-sm-row align-items-center gap-4">
+                <div class="sc-gauge">
+                    <svg width="150" height="150" viewBox="0 0 150 150">
+                        <circle cx="75" cy="75" r="66" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="13"/>
+                        <circle id="scArc" cx="75" cy="75" r="66" fill="none" stroke="#5eead4" stroke-width="13"
+                                stroke-linecap="round" stroke-dasharray="414.7" stroke-dashoffset="414.7"
+                                style="transition: stroke-dashoffset .8s ease, stroke .4s ease;"/>
+                    </svg>
+                    <div class="sc-gauge-val"><b id="scScore">–</b><span>/ 100</span></div>
+                </div>
+                <div class="text-center text-sm-start flex-grow-1">
+                    <div class="d-flex align-items-center justify-content-center justify-content-sm-start gap-2 mb-1 flex-wrap">
+                        <h4 class="fw-bold mb-0">Inbox Readiness</h4>
+                        <span class="badge rounded-pill px-3 py-2 fw-bold" id="scGrade" style="background:rgba(255,255,255,.18);">–</span>
+                    </div>
+                    <p class="text-white-50 mb-0" id="scVerdict">Type or paste your email, then hit Analyze.</p>
+                </div>
+            </div>
+            <div class="row g-2 mt-3">
+                <div class="col-4"><div class="sc-metric" style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.15);">
+                    <b class="text-white" id="mWords">0</b><small class="text-white-50">Words</small></div></div>
+                <div class="col-4"><div class="sc-metric" style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.15);">
+                    <b class="text-white" id="mLinks">0</b><small class="text-white-50">Links</small></div></div>
+                <div class="col-4"><div class="sc-metric" style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.15);">
+                    <b class="text-white" id="mCaps">0%</b><small class="text-white-50">Caps ratio</small></div></div>
+            </div>
+        </div>
+
+        <!-- Findings -->
+        <div class="sc-card p-4">
+            <h5 class="fw-bold text-dark mb-1"><i class="fas fa-list-check text-primary me-2"></i>Findings &amp; fixes</h5>
+            <div id="scFindings"><p class="text-muted small mb-0">Run an analysis to see detailed findings.</p></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const SPAM_WORDS = ['free','guarantee','guaranteed','act now','click here','buy now','order now','limited time',
+    'urgent','winner','congratulations','cash','prize','$$$','100% free','risk-free','no cost','no obligation',
+    'earn money','make money','double your','cheap','discount','offer expires','credit card','viagra','pharmacy',
+    'lottery','investment','income','work from home','miracle','amazing','unbelievable','best price','save big',
+    'exclusive deal','apply now','call now','subscribe','this is not spam','deal','bonus'];
+
+function $(id){ return document.getElementById(id); }
+function stripHtml(h){ const d=document.createElement('div'); d.innerHTML=h||''; return (d.textContent||'').trim(); }
+
+function analyze() {
+    const subject = $('scSubject').value.trim();
+    const from = $('scFrom').value.trim();
+    const rawBody = $('scBody').value;
+    const isHtml = /<[a-z][\s\S]*>/i.test(rawBody);
+    const text = isHtml ? stripHtml(rawBody) : rawBody.trim();
+    const bulk = $('bulkMode').checked;
+
+    const words = text ? text.split(/\s+/).filter(Boolean) : [];
+    const links = (rawBody.match(/https?:\/\/[^\s"'<>)]+/gi) || []);
+    const capsWords = words.filter(w => w.length >= 3 && w === w.toUpperCase() && /[A-Z]/.test(w));
+    const capsRatio = words.length ? Math.round(capsWords.length / words.length * 100) : 0;
+
+    const findings = { subject: [], content: [], links: [], format: [], compliance: [] };
+    let score = 100;
+    const hit = (cat, type, title, desc, pts) => { findings[cat].push({type, title, desc, pts}); score += pts; };
+
+    // ---- Subject ----
+    const subjLower = subject.toLowerCase();
+    if (!subject) hit('subject','bad','Missing subject','Emails with no subject are frequently junked.',-20);
+    else {
+        hit('subject','ok','Subject present', subject.length + ' characters.', 0);
+        if (subject.length > 90) hit('subject','warn','Subject too long','Keep under ~60 chars; long subjects get truncated & flagged.',-6);
+        else if (subject.length < 3) hit('subject','warn','Subject very short','Too-short subjects look suspicious.',-5);
+        if (subject === subject.toUpperCase() && /[A-Z]/.test(subject)) hit('subject','bad','ALL-CAPS subject','Shouting in the subject is a classic spam signal.',-10);
+        const exclaim = (subject.match(/!/g)||[]).length;
+        if (exclaim >= 2) hit('subject','warn','Too many exclamation marks','Multiple "!" in the subject raises spam score.',-5);
+        const sw = SPAM_WORDS.filter(w => subjLower.includes(w));
+        if (sw.length) hit('subject','bad','Spam trigger word(s) in subject','Found: ' + sw.slice(0,4).join(', ') + '.', -Math.min(12, sw.length*4));
+    }
+
+    // ---- From ----
+    if (!from) hit('compliance','warn','No sender name/email set','A recognizable "from" improves trust & deliverability.',-4);
+
+    // ---- Content ----
+    if (words.length === 0) hit('content','bad','Empty body','There is no readable text to send.',-25);
+    else {
+        if (words.length < 20) hit('content','warn','Very little text','Thin content (image-only style) is often filtered.',-6);
+        const bodyLower = text.toLowerCase();
+        const bw = SPAM_WORDS.filter(w => bodyLower.includes(w));
+        if (bw.length) hit('content','bad','Spam trigger words in body','Found ' + bw.length + ': ' + bw.slice(0,6).join(', ') + (bw.length>6?'…':'') + '.', -Math.min(30, bw.length*3));
+        else hit('content','ok','No obvious trigger words','Body language looks clean.',0);
+        if (/\$\s?\d|\d+%\s?off|₹\s?\d/i.test(text)) hit('content','warn','Money / discount language','Prices and "% off" can raise promotional filters.',-4);
+    }
+
+    // ---- Links ----
+    if (links.length === 0 && words.length > 0) hit('links','ok','No links','No URLs to trip link-based filters.',0);
+    if (links.length > 8) hit('links','bad','Too many links','' + links.length + ' links — high link density is spammy.',-8);
+    else if (links.length >= 1 && links.length <= 8) hit('links','ok','Reasonable link count', links.length + ' link(s).', 0);
+    const shorteners = links.filter(u => /(bit\.ly|tinyurl|goo\.gl|t\.co|ow\.ly|is\.gd|buff\.ly)/i.test(u));
+    if (shorteners.length) hit('links','warn','URL shorteners detected','Shortened links hide the destination and hurt trust.',-5);
+
+    // ---- Formatting ----
+    if (capsRatio > 30 && words.length > 5) hit('format','bad','Excessive CAPS','' + capsRatio + '% of words are ALL CAPS.',-10);
+    else if (capsRatio > 15 && words.length > 5) hit('format','warn','High CAPS usage','' + capsRatio + '% caps — tone it down.',-5);
+    else if (words.length > 5) hit('format','ok','Normal capitalization', capsRatio + '% caps.', 0);
+    const bangs = (text.match(/!/g)||[]).length;
+    if (bangs >= 5) hit('format','warn','Lots of exclamation marks','' + bangs + ' "!" in the body.',-5);
+    if (isHtml) {
+        const imgs = (rawBody.match(/<img/gi)||[]).length;
+        if (imgs > 0 && text.length < 40) hit('format','bad','Image-heavy, little text','Image-only emails are a strong spam signal.',-10);
+    }
+
+    // ---- Compliance (bulk) ----
+    if (bulk) {
+        if (/unsubscribe|opt.?out|manage preferences/i.test(rawBody)) hit('compliance','ok','Unsubscribe link present','Good — required for bulk mail (CAN-SPAM).',0);
+        else hit('compliance','bad','No unsubscribe link','Bulk mail must include an unsubscribe option.',-10);
+        if (/©|all rights reserved|\b\d{5}\b|street|road|ave|suite/i.test(text)) hit('compliance','ok','Physical address / footer likely present','Helps pass bulk-sender checks.',0);
+        else hit('compliance','warn','No physical address found','CAN-SPAM requires a mailing address in bulk mail.',-4);
+    }
+
+    score = Math.max(0, Math.min(100, score));
+    render(score, {words: words.length, links: links.length, capsRatio}, findings);
+}
+
+function render(score, metrics, findings) {
+    const arc = $('scArc'), C = 414.7;
+    arc.style.strokeDashoffset = C - (C * score / 100);
+    arc.setAttribute('stroke', score >= 85 ? '#4ade80' : score >= 60 ? '#facc15' : '#f87171');
+    let cur = 0, step = Math.max(1, Math.round(score/24));
+    const t = setInterval(()=>{ cur=Math.min(score,cur+step); $('scScore').innerText=cur; if(cur>=score) clearInterval(t); }, 26);
+
+    const grade = score>=90?'A+':score>=80?'A':score>=65?'B':score>=45?'C':'D';
+    $('scGrade').innerText = grade;
+    $('scVerdict').innerText = score>=85 ? 'Looks inbox-ready — minimal spam signals.'
+        : score>=60 ? 'Decent, but a few things could hurt delivery.'
+        : 'High spam risk — fix the red items before sending.';
+
+    $('mWords').innerText = metrics.words;
+    $('mLinks').innerText = metrics.links;
+    $('mCaps').innerText = metrics.capsRatio + '%';
+
+    const labels = { subject:'Subject', content:'Content', links:'Links', format:'Formatting', compliance:'Compliance' };
+    const icons  = { ok:'circle-check', warn:'triangle-exclamation', bad:'circle-xmark' };
+    let html = '';
+    Object.keys(labels).forEach(cat => {
+        const items = findings[cat]; if (!items || !items.length) return;
+        html += `<div class="sc-cat-title">${labels[cat]}</div>`;
+        items.forEach(f => {
+            html += `<div class="sc-finding ${f.type}">
+                <div class="ic"><i class="fas fa-${icons[f.type]}"></i></div>
+                <div>
+                    <div class="sc-finding-title">${f.title}</div>
+                    <div class="sc-finding-desc">${f.desc}</div>
+                </div>
+                ${f.pts ? `<span class="pts">${f.pts}</span>` : '<span class="pts" style="color:var(--text-400)">0</span>'}
+            </div>`;
+        });
+    });
+    $('scFindings').innerHTML = html || '<p class="text-muted small mb-0">No findings.</p>';
+}
+
+function loadSample() {
+    $('scSubject').value = 'CONGRATULATIONS!!! You WON a FREE $$$ PRIZE — ACT NOW!!!';
+    $('scFrom').value = '';
+    $('scBody').value = 'Dear winner, CLICK HERE now to claim your 100% FREE cash prize!!! ' +
+        'This amazing limited time offer expires soon. Buy now and earn money fast — visit http://bit.ly/claim-now and http://bit.ly/bonus. RISK-FREE GUARANTEE!!!';
+    $('bulkMode').checked = true;
+    analyze();
+}
+function clearAll() {
+    $('scSubject').value=''; $('scFrom').value=''; $('scBody').value=''; $('bulkMode').checked=false;
+    analyze();
+}
+
+// Live analysis (debounced)
+let _t;
+['scSubject','scFrom','scBody'].forEach(id => {
+    const el = $(id);
+    el && el.addEventListener('input', () => { clearTimeout(_t); _t = setTimeout(analyze, 350); });
+});
+$('bulkMode').addEventListener('change', analyze);
+
+// Analyze prefilled content on load
+if ($('scSubject').value || $('scBody').value) analyze();
+</script>
+{% endblock %}

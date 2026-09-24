@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-extrabold text-dark mb-1">
+                <i class="fas fa-calculator text-success me-2"></i> Hosting Architecture & Cost Calculator
+            </h2>
+            <p class="text-muted mb-0">Compare self-hosted, cloud free-tier VMs, paid VPS stacks (Mailcow/iRedMail), and managed providers (Google Workspace/Office 365) for 30 Nexus employees (Sections 7-21, 31, 32).</p>
+        </div>
+    </div>
+
+    <!-- Dynamic Cost Calculator Input Card -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4 bg-primary text-white p-2">
+        <div class="card-body">
+            <h5 class="fw-bold mb-3"><i class="fas fa-sliders text-warning me-2"></i> Cost Model Parameters</h5>
+            <form method="POST" action="{{ url_for('architecture_calculator') }}">
+                <div class="row g-3 align-items-center">
+                    <div class="col-md-4">
+                        <label class="form-label text-white-50 font-bold mb-1">Total Employee Count:</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-0 text-primary fw-bold"><i class="fas fa-users"></i></span>
+                            <input type="number" name="users_count" class="form-control border-0 fw-bold" value="{{ users_count }}" min="1" max="1000">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-white-50 font-bold mb-1">Storage per Employee (GB):</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-0 text-primary fw-bold"><i class="fas fa-hard-drive"></i></span>
+                            <input type="number" name="storage_per_user" class="form-control border-0 fw-bold" value="{{ storage_gb_per_user }}" min="1" max="100">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-white-50 font-bold mb-1">Monthly Sending Volume:</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-0 text-primary fw-bold"><i class="fas fa-paper-plane"></i></span>
+                            <input type="number" name="relay_volume" class="form-control border-0 fw-bold" value="{{ relay_volume_monthly }}" min="500" max="1000000">
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3 text-end">
+                    <button type="submit" class="btn btn-warning rounded-pill px-4 font-bold shadow-sm">
+                        <i class="fas fa-rotate me-1"></i> Recalculate TCO & Costs
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Monthly Cost Comparison Cards -->
+    <div class="row g-3 mb-4">
+        <!-- Scenario A: Existing PC -->
+        <div class="col-md">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white text-center">
+                <small class="text-muted font-bold text-uppercase" style="font-size: 11px;">Existing PC / Laptop</small>
+                <h3 class="fw-bold text-dark mt-2 mb-1">₹{{ pc_monthly }} <small class="text-muted fs-6">/mo</small></h3>
+                <small class="text-success fw-bold"><i class="fas fa-check me-1"></i> ₹0 License Fee</small>
+                <hr class="my-2">
+                <small class="text-muted" style="font-size: 11px;">Power / ISP cost only. Subject to uptime & dynamic IP issues.</small>
+            </div>
+        </div>
+        <!-- Scenario B: Free-Tier VM -->
+        <div class="col-md">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white text-center border-start border-4 border-info">
+                <small class="text-info font-bold text-uppercase" style="font-size: 11px;">Free Cloud VM (Oracle/GCP)</small>
+                <h3 class="fw-bold text-info mt-2 mb-1">₹{{ free_vm_monthly }} <small class="text-muted fs-6">/mo</small></h3>
+                <small class="text-info fw-bold"><i class="fas fa-cloud me-1"></i> Free Compute</small>
+                <hr class="my-2">
+                <small class="text-muted" style="font-size: 11px;">Small backup storage fee. Requires account eligibility & Port 25 verification.</small>
+            </div>
+        </div>
+        <!-- Scenario C: Paid VPS -->
+        <div class="col-md">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white text-center border-start border-4 border-primary">
+                <small class="text-primary font-bold text-uppercase" style="font-size: 11px;">Paid VPS (Mailcow/Docker)</small>
+                <h3 class="fw-bold text-primary mt-2 mb-1">₹{{ paid_vps_monthly }} <small class="text-muted fs-6">/mo</small></h3>
+                <small class="text-primary fw-bold"><i class="fas fa-server me-1"></i> Full VPS Specs</small>
+                <hr class="my-2">
+                <small class="text-muted" style="font-size: 11px;">Dedicated IP, Postfix, Dovecot, DKIM, SpamAssassin included.</small>
+            </div>
+        </div>
+        <!-- Scenario D: Managed Provider -->
+        <div class="col-md">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white text-center border-start border-4 border-danger">
+                <small class="text-danger font-bold text-uppercase" style="font-size: 11px;">Google Workspace / 365</small>
+                <h3 class="fw-bold text-danger mt-2 mb-1">₹{{ managed_monthly }} <small class="text-muted fs-6">/mo</small></h3>
+                <small class="text-danger fw-bold"><i class="fas fa-building me-1"></i> ₹600 / user / mo</small>
+                <hr class="my-2">
+                <small class="text-muted" style="font-size: 11px;">Zero infrastructure management. Highest deliverability guarantee.</small>
+            </div>
+        </div>
+        <!-- Scenario E: Hybrid -->
+        <div class="col-md">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white text-center border-start border-4 border-warning">
+                <small class="text-warning font-bold text-uppercase" style="font-size: 11px;">Hybrid (IMAP + Relay)</small>
+                <h3 class="fw-bold text-dark mt-2 mb-1">₹{{ hybrid_monthly }} <small class="text-muted fs-6">/mo</small></h3>
+                <small class="text-dark fw-bold"><i class="fas fa-network-wired me-1"></i> Self IMAP + Relay</small>
+                <hr class="my-2">
+                <small class="text-muted" style="font-size: 11px;">Self-hosted storage for mailboxes + external SMTP relay for outbound delivery.</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comparison Matrix Table (Section 31) -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-white border-0 py-3">
+            <h5 class="fw-bold text-dark mb-0"><i class="fas fa-table-list text-primary me-2"></i> Section 31 — Hosting Methods Comparison Matrix</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="font-size: 13px;">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Method</th>
+                            <th>Software Cost</th>
+                            <th>Infrastructure</th>
+                            <th>SMTP</th>
+                            <th>IMAP</th>
+                            <th>Webmail</th>
+                            <th>External Email Delivery</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="fw-bold text-dark">Existing Office PC</td>
+                            <td><span class="badge bg-success">Free</span></td>
+                            <td>Local Desktop PC</td>
+                            <td>Yes</td>
+                            <td>Yes</td>
+                            <td>Yes</td>
+                            <td><span class="badge bg-warning text-dark">Difficult (CGNAT / Port 25)</span></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold text-dark">Free-Tier Cloud VM</td>
+                            <td><span class="badge bg-success">Free (Eligible)</span></td>
+                            <td>Oracle / GCP Free</td>
+                            <td>Possible</td>
+                            <td>Yes</td>
+                            <td>Yes</td>
+                            <td><span class="badge bg-info">Possible (Subject to policy)</span></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold text-dark">Paid VPS (Custom Linux)</td>
+                            <td><span class="badge bg-success">Free Software</span></td>
+                            <td>Paid VPS (Ubuntu)</td>
+                            <td>Yes</td>
+                            <td>Yes</td>
+                            <td>Yes</td>
+                            <td><span class="badge bg-success">High (With PTR/SPF)</span></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold text-dark">Mailcow / Mail-in-a-Box</td>
+                            <td><span class="badge bg-success">Open Source</span></td>
+                            <td>Paid VPS (Docker)</td>
+                            <td>Yes</td>
+                            <td>Yes</td>
+                            <td>Yes</td>
+                            <td><span class="badge bg-success">High</span></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold text-dark">Managed Provider</td>
+                            <td><span class="badge bg-danger">Included in Plan</span></td>
+                            <td>Google / Microsoft</td>
+                            <td>Yes</td>
+                            <td>Yes</td>
+                            <td>Yes</td>
+                            <td><span class="badge bg-success">100% Guaranteed</span></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold text-dark">Hybrid (IMAP + Relay)</td>
+                            <td><span class="badge bg-success">Mostly Free</span></td>
+                            <td>Own Server + Relay</td>
+                            <td>Relayed</td>
+                            <td>Yes</td>
+                            <td>Optional</td>
+                            <td><span class="badge bg-success">Excellent</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

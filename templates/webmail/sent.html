@@ -1,0 +1,350 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* Keep button icons normal-sized inside empty states
+       (global ".fc-view-empty i" blows icons up to 60px) */
+    .fc-view-empty .btn i { font-size: 1em; opacity: 1; margin: 0 .4rem 0 0; color: inherit; }
+</style>
+<div class="fc-webmail-container">
+    <!-- ══════════════════════════════════════
+         LEFT PANE: Sent Messages List (380px)
+         ══════════════════════════════════════ -->
+    <div class="fc-webmail-list-pane">
+        <!-- List Header -->
+        <div class="fc-webmail-list-header">
+            <div class="fc-webmail-title-row">
+                <div class="fc-webmail-title">
+                    <i class="fas fa-paper-plane text-success"></i>
+                    <span>Sent Mail</span>
+                    <span class="badge rounded-pill bg-success bg-opacity-10 text-success fw-700" style="font-size: 11px;">
+                        {{ messages|length }} Dispatched
+                    </span>
+                </div>
+                <a href="{{ url_for('webmail_compose') }}" class="btn btn-primary-gradient btn-sm rounded-pill py-1 px-3 fw-700 text-nowrap flex-shrink-0" style="font-size: 12px;">
+                    <i class="fas fa-pen-to-square me-1"></i> Compose
+                </a>
+            </div>
+
+            <!-- Search input -->
+            <div class="fc-webmail-search-box">
+                <i class="fas fa-search"></i>
+                <input type="text"
+                       id="sentSearchInput"
+                       class="fc-webmail-search-input"
+                       placeholder="Search recipient, subject, or body..."
+                       value="{{ search_query }}"
+                       autocomplete="off">
+            </div>
+        </div>
+
+        <!-- Scrollable Messages List Items -->
+        <div class="fc-webmail-items-scroll" id="sentListContainer">
+            {% set palette = ['#059669', '#2563eb', '#7c3aed', '#0284c7', '#d97706', '#e11d48'] %}
+            {% for m in messages %}
+                {% set av_color = palette[loop.index0 % palette|length] %}
+                <div class="fc-mail-item {% if selected_msg and selected_msg.id == m.id %}selected{% endif %}"
+                     id="sent-card-{{ m.id }}"
+                     data-id="{{ m.id }}"
+                     data-recipient="{{ m.recipient_email|lower }}"
+                     data-subject="{{ m.subject|lower }}"
+                     data-body="{{ m.body_html|striptags|lower }}"
+                     onclick="selectSentEmail({{ m.id }})">
+                    
+                    <div class="fc-mail-avatar" style="background: {{ av_color }};">
+                        {{ m.recipient_email[:2]|upper }}
+                    </div>
+
+                    <div class="fc-mail-info">
+                        <div class="fc-mail-header-line">
+                            <span class="fc-mail-sender-name">To: {{ m.recipient_email }}</span>
+                            <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
+                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-1.5 py-0.5 fw-700" style="font-size: 9.5px;">
+                                    <i class="fas fa-check"></i> Sent
+                                </span>
+                                <span class="fc-mail-time">{{ m.created_at.strftime('%b %d') }}</span>
+                            </div>
+                        </div>
+
+                        <div class="fc-mail-subject">
+                            {% if m.attachments %}
+                                <i class="fas fa-paperclip text-muted" style="font-size: 11px;"></i>
+                            {% endif %}
+                            <span>{{ m.subject }}</span>
+                        </div>
+
+                        <div class="fc-mail-snippet">
+                            {{ m.body_html|striptags }}
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="fc-view-empty py-5">
+                    <i class="fas fa-paper-plane fs-1 mb-3 opacity-25"></i>
+                    <h6 class="fw-700 text-dark mb-1">No sent messages yet</h6>
+                    <p class="small text-muted mb-3" style="max-width: 220px;">Outgoing emails you dispatch via SMTP will appear here.</p>
+                    <a href="{{ url_for('webmail_compose') }}" class="btn btn-primary-gradient btn-sm rounded-pill px-3 fw-700 d-inline-flex align-items-center justify-content-center mx-auto">
+                        <i class="fas fa-pen-to-square me-1"></i> Send an Email
+                    </a>
+                </div>
+            {% endfor %}
+            <div id="noSentResults" class="text-center py-5 d-none text-muted">
+                <i class="fas fa-magnifying-glass fs-3 mb-2 opacity-30 d-block"></i>
+                <small>No matching sent emails found.</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         RIGHT PANE: Sent Reading View
+         ══════════════════════════════════════ -->
+    <div class="fc-webmail-view-pane" id="sentViewPane">
+        {% if selected_msg %}
+            <!-- Toolbar -->
+            <div class="fc-webmail-view-toolbar" id="sentToolbar">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-1.5 fw-700 font-mono" style="font-size: 11px;">
+                        <i class="fas fa-check-circle me-1"></i> DELIVERED
+                    </span>
+                    <span class="badge bg-light text-muted rounded-pill px-2.5 py-1.5 fw-600 font-mono" style="font-size: 11px;">
+                        SMTP Verified
+                    </span>
+                </div>
+
+                <div class="d-flex align-items-center gap-2">
+                    <a href="{{ url_for('reply_mail', id=selected_msg.id) }}" id="sentFollowupBtn" class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-700">
+                        <i class="fas fa-reply me-1"></i> Send Follow-up
+                    </a>
+                    <a href="{{ url_for('forward_mail', id=selected_msg.id) }}" id="sentForwardBtn" class="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-700">
+                        <i class="fas fa-share me-1"></i> Forward
+                    </a>
+                    <form id="sentDeleteForm" action="{{ url_for('delete_mail', id=selected_msg.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Move this sent email to Trash?');">
+                        <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-700">
+                            <i class="fas fa-trash-can me-1"></i> Delete
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Scrollable Content -->
+            <div class="fc-webmail-content-scroll" id="sentContentScroll">
+                <!-- Subject -->
+                <h3 class="fc-view-subject" id="sentSubject">{{ selected_msg.subject }}</h3>
+
+                <!-- Recipient Card -->
+                <div class="fc-view-sender-card">
+                    <div class="fc-view-avatar" id="sentAvatar" style="background: linear-gradient(135deg, #059669, #047857);">
+                        {{ selected_msg.recipient_email[:2]|upper }}
+                    </div>
+                    <div class="fc-view-sender-details">
+                        <div class="fc-view-sender-top">
+                            <div class="fc-view-sender-name" id="sentRecipientName">To: {{ selected_msg.recipient_email }}</div>
+                            <div class="fc-view-date" id="sentDate">
+                                <i class="far fa-clock me-1"></i> {{ selected_msg.created_at.strftime('%b %d, %Y at %H:%M') }}
+                            </div>
+                        </div>
+                        <div class="fc-view-emails-line">
+                            Dispatched from: <code id="sentSenderEmail">{{ selected_msg.sender_email }}</code>
+                            <span class="mx-1 text-muted">·</span>
+                            Destination: <code id="sentRecipientEmail">{{ selected_msg.recipient_email }}</code>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- HTML Email Body -->
+                <div class="fc-view-body-card" id="sentBody">
+                    {{ selected_msg.body_html|safe }}
+                </div>
+
+                <!-- Attachments Section -->
+                <div class="fc-view-attachments-box {% if not selected_msg.attachments %}d-none{% endif %}" id="sentAttachmentsBox">
+                    <h6 class="fw-700 text-dark small mb-2 d-flex align-items-center">
+                        <i class="fas fa-paperclip text-fc-blue me-2"></i>
+                        <span>Attachments (<span id="sentAttCount">{{ selected_msg.attachments|length }}</span>)</span>
+                    </h6>
+                    <div class="d-flex flex-wrap gap-2" id="sentAttachmentsList">
+                        {% for att in selected_msg.attachments %}
+                            <a href="{{ url_for('download_attachment', id=att.id) }}" class="fc-attachment-chip" download>
+                                <i class="fas fa-file-arrow-down text-fc-blue fs-5"></i>
+                                <div>
+                                    <div class="fw-700 text-dark" style="font-size: 12.5px;">{{ att.filename }}</div>
+                                    <small class="text-muted" style="font-size: 10.5px;">{{ (att.file_size / 1024)|round(1) }} KB</small>
+                                </div>
+                                <i class="fas fa-download text-muted ms-2" style="font-size: 12px;"></i>
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Quick Follow-up Box -->
+                <div class="fc-view-quickreply" id="sentQuickFollowupBox">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="fw-700 text-dark small mb-0 d-flex align-items-center">
+                            <i class="fas fa-reply text-success me-2"></i>
+                            <span>Send Follow-up Message to <span id="quickFollowupRecipient">{{ selected_msg.recipient_email }}</span></span>
+                        </h6>
+                    </div>
+                    <form action="{{ url_for('webmail_compose') }}" method="GET" id="quickFollowupForm">
+                        <input type="hidden" name="to" id="quickFollowupToInput" value="{{ selected_msg.recipient_email }}">
+                        <input type="hidden" name="subject" id="quickFollowupSubjectInput" value="Follow-up: {{ selected_msg.subject }}">
+                        <div class="input-group">
+                            <input type="text"
+                                   name="body"
+                                   class="form-control py-2 px-3 rounded-start-pill"
+                                   placeholder="Type a quick follow-up note..."
+                                   required>
+                            <button type="submit" class="btn btn-primary-gradient px-4 fw-700 rounded-end-pill">
+                                Send <i class="fas fa-paper-plane ms-1"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% else %}
+            <!-- Empty State when nothing selected -->
+            <div class="fc-view-empty">
+                <i class="fas fa-paper-plane"></i>
+                <h4 class="fw-800 text-dark mb-1">Select a sent message</h4>
+                <p class="small text-muted" style="max-width: 320px;">
+                    Choose a sent email from your list on the left to inspect its transmission details and dispatches.
+                </p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Embedded JSON Data for Instant Client-Side Switching -->
+<script id="sentDataJson" type="application/json">
+{
+  {% for m in messages %}
+  "{{ m.id }}": {
+    "id": {{ m.id }},
+    "subject": {{ m.subject|tojson }},
+    "sender_name": {{ m.sender_name|tojson }},
+    "sender_email": {{ m.sender_email|tojson }},
+    "recipient_email": {{ m.recipient_email|tojson }},
+    "date_formatted": "{{ m.created_at.strftime('%b %d, %Y at %H:%M') }}",
+    "body_html": {{ m.body_html|tojson }},
+    "reply_url": "{{ url_for('reply_mail', id=m.id) }}",
+    "forward_url": "{{ url_for('forward_mail', id=m.id) }}",
+    "delete_url": "{{ url_for('delete_mail', id=m.id) }}",
+    "attachments": [
+      {% for att in m.attachments %}
+      {
+        "id": {{ att.id }},
+        "filename": {{ att.filename|tojson }},
+        "size_kb": {{ (att.file_size / 1024)|round(1) }},
+        "download_url": "{{ url_for('download_attachment', id=att.id) }}"
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ]
+  }{% if not loop.last %},{% endif %}
+  {% endfor %}
+}
+</script>
+
+<script>
+let sentEmails = {};
+try {
+    const raw = document.getElementById('sentDataJson');
+    if (raw) sentEmails = JSON.parse(raw.textContent);
+} catch (e) {
+    console.error(e);
+}
+
+function selectSentEmail(id) {
+    const data = sentEmails[id];
+    if (!data) return;
+
+    document.querySelectorAll('.fc-mail-item').forEach(el => el.classList.remove('selected'));
+    const card = document.getElementById('sent-card-' + id);
+    if (card) card.classList.add('selected');
+
+    if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', '/sent?msg_id=' + id);
+    }
+
+    const subj = document.getElementById('sentSubject');
+    const recName = document.getElementById('sentRecipientName');
+    const av = document.getElementById('sentAvatar');
+    const date = document.getElementById('sentDate');
+    const sEmail = document.getElementById('sentSenderEmail');
+    const rEmail = document.getElementById('sentRecipientEmail');
+    const body = document.getElementById('sentBody');
+
+    if (subj) subj.innerText = data.subject;
+    if (recName) recName.innerText = 'To: ' + data.recipient_email;
+    if (av) av.innerText = (data.recipient_email || 'EM').substring(0, 2).toUpperCase();
+    if (date) date.innerHTML = '<i class="far fa-clock me-1"></i> ' + data.date_formatted;
+    if (sEmail) sEmail.innerText = data.sender_email;
+    if (rEmail) rEmail.innerText = data.recipient_email;
+    if (body) body.innerHTML = data.body_html;
+
+    const followBtn = document.getElementById('sentFollowupBtn');
+    const fwdBtn = document.getElementById('sentForwardBtn');
+    const delForm = document.getElementById('sentDeleteForm');
+    if (followBtn) followBtn.href = data.reply_url;
+    if (fwdBtn) fwdBtn.href = data.forward_url;
+    if (delForm) delForm.action = data.delete_url;
+
+    // Attachments
+    const attBox = document.getElementById('sentAttachmentsBox');
+    const attList = document.getElementById('sentAttachmentsList');
+    const attCount = document.getElementById('sentAttCount');
+    if (attBox && attList) {
+        if (data.attachments && data.attachments.length > 0) {
+            attBox.classList.remove('d-none');
+            if (attCount) attCount.innerText = data.attachments.length;
+            attList.innerHTML = data.attachments.map(att => `
+                <a href="${att.download_url}" class="fc-attachment-chip" download>
+                    <i class="fas fa-file-arrow-down text-fc-blue fs-5"></i>
+                    <div>
+                        <div class="fw-700 text-dark" style="font-size: 12.5px;">${att.filename}</div>
+                        <small class="text-muted" style="font-size: 10.5px;">${att.size_kb} KB</small>
+                    </div>
+                    <i class="fas fa-download text-muted ms-2" style="font-size: 12px;"></i>
+                </a>
+            `).join('');
+        } else {
+            attBox.classList.add('d-none');
+            attList.innerHTML = '';
+        }
+    }
+
+    const qRec = document.getElementById('quickFollowupRecipient');
+    const qTo = document.getElementById('quickFollowupToInput');
+    const qSubj = document.getElementById('quickFollowupSubjectInput');
+    if (qRec) qRec.innerText = data.recipient_email;
+    if (qTo) qTo.value = data.recipient_email;
+    if (qSubj) qSubj.value = 'Follow-up: ' + data.subject;
+
+    const scrollEl = document.getElementById('sentContentScroll');
+    if (scrollEl) scrollEl.scrollTop = 0;
+}
+
+// Live Search Filter
+const searchInput = document.getElementById('sentSearchInput');
+if (searchInput) {
+    searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        let visible = 0;
+        document.querySelectorAll('.fc-mail-item').forEach(card => {
+            const recipient = card.getAttribute('data-recipient') || '';
+            const subject = card.getAttribute('data-subject') || '';
+            const body = card.getAttribute('data-body') || '';
+            if (!q || recipient.includes(q) || subject.includes(q) || body.includes(q)) {
+                card.classList.remove('d-none');
+                visible++;
+            } else {
+                card.classList.add('d-none');
+            }
+        });
+        const noRes = document.getElementById('noSentResults');
+        if (noRes) {
+            if (visible === 0) noRes.classList.remove('d-none');
+            else noRes.classList.add('d-none');
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }} - Nexus Mail System Research</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f8fafc; color: #1e293b; padding: 40px; }
+        .report-header { border-bottom: 3px solid #6366f1; padding-bottom: 20px; margin-bottom: 30px; }
+        .printable-card { background: #ffffff; border-radius: 16px; padding: 35px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+    <div class="container max-w-4xl">
+        <div class="printable-card">
+            <div class="d-flex justify-content-between align-items-center report-header">
+                <div>
+                    <h3 class="fw-bold text-primary mb-1"><i class="fas fa-file-pdf me-2"></i> {{ title }}</h3>
+                    <p class="text-muted mb-0">Nexus Technical Research & Architecture Specification | Target Organization: 30 Employees (nexus.com)</p>
+                </div>
+                <button onclick="window.print()" class="btn btn-primary rounded-pill font-bold shadow-sm d-print-none">
+                    <i class="fas fa-print me-1"></i> Print / Save PDF
+                </button>
+            </div>
+
+            {% if deliv_id == 1 %}
+                <h5 class="fw-bold text-dark mb-3">1. Executive Summary & VM Specifications</h5>
+                <p>Evaluation of free-tier cloud virtual machines for hosting the Nexus Mail prototype and test mailboxes.</p>
+                <table class="table table-bordered align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Cloud Provider</th>
+                            <th>Compute Resources</th>
+                            <th>Outbound Port 25 Status</th>
+                            <th>Suitability Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Oracle Cloud Free Tier</strong></td>
+                            <td>4 ARM Ampere Cores, 24 GB RAM, 200 GB Storage</td>
+                            <td><span class="badge bg-warning text-dark">Blocked by Default (Requires Ticket)</span></td>
+                            <td><span class="badge bg-success">Recommended (Lab)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Google Cloud (GCP)</strong></td>
+                            <td>1 e2-micro instance, 1 GB RAM, 30 GB Disk</td>
+                            <td><span class="badge bg-danger">Blocked (SMTP Relay Required)</span></td>
+                            <td><span class="badge bg-info">Good (Hybrid Relay)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Amazon Web Services (AWS)</strong></td>
+                            <td>t2.micro (12 Months Free), 1 GB RAM</td>
+                            <td><span class="badge bg-danger">Throttled / Blocked</span></td>
+                            <td><span class="badge bg-secondary">Fair</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Microsoft Azure</strong></td>
+                            <td>B1s (12 Months Free), 1 GB RAM</td>
+                            <td><span class="badge bg-danger">Blocked for Free Tiers</span></td>
+                            <td><span class="badge bg-secondary">Fair</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            {% elif deliv_id == 2 %}
+                <h5 class="fw-bold text-dark mb-3">2. Open-Source Ready-Made Mail Stack Evaluation</h5>
+                <p>Comparison of full-stack email server solutions for 30 employee mailboxes.</p>
+                <ul class="list-group list-group-flush mb-4">
+                    <li class="list-group-item"><strong>Mailcow (Dockerized):</strong> Modern, web GUI admin panel, built-in Solr search, SOGo webmail, Rspamd anti-spam, automatic DKIM generation. Requires 4GB RAM minimum.</li>
+                    <li class="list-group-item"><strong>Postfix + Dovecot (Manual):</strong> Lightweight, maximum customization, zero extra overhead, runs on 1GB RAM. Manual configuration required for DKIM and SSL.</li>
+                    <li class="list-group-item"><strong>Mail-in-a-Box:</strong> Automated setup for Ubuntu, includes Roundcube webmail, DNS server, TLS certificates. Strict single-machine design.</li>
+                </ul>
+            {% elif deliv_id == 3 %}
+                <h5 class="fw-bold text-dark mb-3">3. Email Client Compatibility & Protocol Matrix</h5>
+                <p>Verification of client application connectivity via IMAP (Port 993) and SMTP AUTH (Port 587/465).</p>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="p-3 border rounded-3 bg-light">
+                            <h6><i class="fas fa-desktop text-primary me-2"></i> Desktop Clients</h6>
+                            <small class="d-block">✓ Microsoft Outlook 2021 / 365 (SSL/TLS pass)</small>
+                            <small class="d-block">✓ Mozilla Thunderbird (Autodiscover XML pass)</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 border rounded-3 bg-light">
+                            <h6><i class="fas fa-mobile-screen text-success me-2"></i> Mobile & Web</h6>
+                            <small class="d-block">✓ iOS Mail App (IMAP sync pass)</small>
+                            <small class="d-block">✓ Android Gmail / Outlook App (SMTP AUTH pass)</small>
+                            <small class="d-block">✓ Custom Responsive Webmail Suite (100% pass)</small>
+                        </div>
+                    </div>
+                </div>
+            {% elif deliv_id == 4 %}
+                <h5 class="fw-bold text-dark mb-3">4. Deliverability & Authentication Benchmark</h5>
+                <p>Security policies to ensure inbox delivery and prevent spam classification.</p>
+                <div class="alert alert-info rounded-3">
+                    <strong>Recommended Production Record Configuration:</strong>
+                    <div class="font-mono mt-2" style="font-size: 12px;">
+                        SPF: v=spf1 include:_spf.nexus.com ~all<br>
+                        DKIM: google._domainkey.nexus.com IN TXT "v=DKIM1; k=rsa; p=..."<br>
+                        DMARC: _dmarc.nexus.com IN TXT "v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc@nexus.com"<br>
+                        PTR: 143.198.53.186 -> mail.nexus.com
+                    </div>
+                </div>
+            {% else %}
+                <h5 class="fw-bold text-dark mb-3">5. Final Production Architecture Specification</h5>
+                <p>Final proposal for Nexus 30 employee mailboxes.</p>
+                <div class="p-4 bg-light rounded-4 border mb-4">
+                    <h6>Recommended Architecture: <strong>Option C (Hybrid Candidate)</strong></h6>
+                    <p class="mb-0 text-muted">Self-hosted IMAP mailbox server for 30 users + External SMTP Relay (SendGrid/Amazon SES) for outbound delivery to guarantee 99.9% inbox placement without IP reputation risks.</p>
+                </div>
+            {% endif %}
+
+            <div class="mt-5 pt-3 border-top text-center text-muted">
+                <small>Generated automatically by ProMail Enterprise System | Nexus Mail Research & Review Module</small>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

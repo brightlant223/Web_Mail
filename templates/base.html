@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brightlant Webmail — Enterprise Mail System</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/icon-192.png') }}">
+    <link rel="apple-touch-icon" sizes="512x512" href="{{ url_for('static', filename='images/icon-512.png') }}">
+    <!-- Google Fonts: Inter + Plus Jakarta Sans -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+
+<div class="wrapper">
+    <!-- ═══════════════════════════════════════
+         SIDEBAR — FloatChat narrow icon style
+         ═══════════════════════════════════════ -->
+    {% if current_user.is_authenticated %}
+    <nav id="sidebar">
+        <!-- Brand Icon & Name -->
+        <div class="sidebar-header">
+            <a href="{% if current_user.role == 'admin' %}{{ url_for('admin_dashboard') }}{% else %}{{ url_for('user_dashboard') }}{% endif %}" class="sidebar-brand-wrapper text-decoration-none">
+                <div class="sidebar-brand-icon">
+                    <i class="fas fa-paper-plane"></i>
+                </div>
+                <div class="sidebar-brand-text">
+                    <span class="brand-title">Brightlant</span>
+                    <span class="brand-subtitle">Webmail</span>
+                </div>
+            </a>
+            <button type="button" id="sidebarPinBtn" class="sidebar-pin" title="Pin sidebar open" aria-label="Pin sidebar open" aria-pressed="false">
+                <i class="fas fa-thumbtack"></i>
+            </button>
+        </div>
+
+        <ul class="list-unstyled">
+            {% if current_user.role == 'admin' %}
+                <!-- Section: Workspace -->
+                <li class="sidebar-section-header"><span>Workspace</span></li>
+                <li>
+                    <a href="{{ url_for('admin_dashboard') }}" class="sidebar-link" title="Overview">
+                        <i class="fas fa-layer-group"></i>
+                        <span class="sidebar-label">Overview</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('admin_domains') }}" class="sidebar-link" title="Domains">
+                        <i class="fas fa-globe"></i>
+                        <span class="sidebar-label">Domains</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('admin_users') }}" class="sidebar-link" title="Mailboxes">
+                        <i class="fas fa-users"></i>
+                        <span class="sidebar-label">Mailboxes</span>
+                    </a>
+                </li>
+
+                <!-- Section: Security & Server -->
+                <li class="sidebar-section-header"><span>Security & Server</span></li>
+                <li>
+                    <a href="{{ url_for('admin_dns') }}" class="sidebar-link" title="DNS & SPF">
+                        <i class="fas fa-shield-halved"></i>
+                        <span class="sidebar-label">DNS & SPF</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('admin_spam_checker') }}" class="sidebar-link" title="Spam Score">
+                        <i class="fas fa-shield-virus"></i>
+                        <span class="sidebar-label">Spam Score</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('admin_smtp') }}" class="sidebar-link" title="SMTP Setup">
+                        <i class="fas fa-server"></i>
+                        <span class="sidebar-label">SMTP Setup</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('admin_profile') }}" class="sidebar-link" title="Password & Security">
+                        <i class="fas fa-key"></i>
+                        <span class="sidebar-label">Password & Security</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('admin_logs') }}" class="sidebar-link" title="Audit Logs">
+                        <i class="fas fa-clipboard-list"></i>
+                        <span class="sidebar-label">Audit Logs</span>
+                    </a>
+                </li>
+
+                <!-- Section: Communication -->
+                <li class="sidebar-section-header"><span>Communication</span></li>
+                <li>
+                    <a href="{{ url_for('notifications_page') }}" class="sidebar-link position-relative" title="Notifications">
+                        <i class="fas fa-bell"></i>
+                        <span class="sidebar-label">Notifications</span>
+                        <span id="sidebarNotifCount" class="sidebar-notif-count d-none">0</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('webmail_inbox') }}" class="sidebar-link position-relative" title="Inbox">
+                        <i class="fas fa-inbox"></i>
+                        <span class="sidebar-label">Inbox</span>
+                        <span id="navInboxBadge" class="sidebar-notif-dot d-none"></span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('webmail_compose') }}" class="sidebar-link" title="Compose">
+                        <i class="fas fa-pen-to-square"></i>
+                        <span class="sidebar-label">Compose</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('webmail_sent') }}" class="sidebar-link" title="Sent">
+                        <i class="fas fa-paper-plane"></i>
+                        <span class="sidebar-label">Sent</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('settings_page') }}" class="sidebar-link" title="Settings">
+                        <i class="fas fa-sliders"></i>
+                        <span class="sidebar-label">Settings</span>
+                    </a>
+                </li>
+
+            {% else %}
+                <!-- Section: Workspace -->
+                <li class="sidebar-section-header"><span>Workspace</span></li>
+                <li>
+                    <a href="{{ url_for('user_dashboard') }}" class="sidebar-link" title="Overview">
+                        <i class="fas fa-layer-group"></i>
+                        <span class="sidebar-label">Overview</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('analytics') }}" class="sidebar-link" title="Analytics">
+                        <i class="fas fa-chart-area"></i>
+                        <span class="sidebar-label">Analytics</span>
+                    </a>
+                </li>
+
+                <!-- Section: Communication -->
+                <li class="sidebar-section-header"><span>Communication</span></li>
+                <li>
+                    <a href="{{ url_for('notifications_page') }}" class="sidebar-link position-relative" title="Notifications">
+                        <i class="fas fa-bell"></i>
+                        <span class="sidebar-label">Notifications</span>
+                        <span id="sidebarNotifCount" class="sidebar-notif-count d-none">0</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('webmail_inbox') }}" class="sidebar-link position-relative" title="Inbox">
+                        <i class="fas fa-inbox"></i>
+                        <span class="sidebar-label">Inbox</span>
+                        <span id="navInboxBadge" class="sidebar-notif-dot d-none"></span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('webmail_compose') }}" class="sidebar-link" title="Compose">
+                        <i class="fas fa-pen-to-square"></i>
+                        <span class="sidebar-label">Compose</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('webmail_sent') }}" class="sidebar-link" title="Sent">
+                        <i class="fas fa-paper-plane"></i>
+                        <span class="sidebar-label">Sent</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('webmail_drafts') }}" class="sidebar-link" title="Drafts">
+                        <i class="fas fa-file-lines"></i>
+                        <span class="sidebar-label">Drafts</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('webmail_trash') }}" class="sidebar-link" title="Trash">
+                        <i class="fas fa-trash-can"></i>
+                        <span class="sidebar-label">Trash</span>
+                    </a>
+                </li>
+
+                <!-- Section: Tools & Settings -->
+                <li class="sidebar-section-header"><span>Tools & Settings</span></li>
+                <li>
+                    <a href="{{ url_for('contacts') }}" class="sidebar-link" title="Contacts">
+                        <i class="fas fa-address-book"></i>
+                        <span class="sidebar-label">Contacts</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('email_templates') }}" class="sidebar-link" title="Templates">
+                        <i class="fas fa-file-code"></i>
+                        <span class="sidebar-label">Templates</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('settings_page') }}" class="sidebar-link" title="Settings">
+                        <i class="fas fa-sliders"></i>
+                        <span class="sidebar-label">Settings</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('profile') }}" class="sidebar-link" title="Password & Profile">
+                        <i class="fas fa-key"></i>
+                        <span class="sidebar-label">Password & Profile</span>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+
+        <!-- Sidebar Footer: User Card -->
+        <div class="sidebar-footer">
+            <a href="{% if current_user.role == 'admin' %}{{ url_for('admin_profile') }}{% else %}{{ url_for('profile') }}{% endif %}"
+               class="sidebar-user-card"
+               title="{{ current_user.name }}">
+                <div class="sidebar-avatar">
+                    {% if current_user.profile and current_user.profile.avatar %}
+                        <img src="{{ url_for('static', filename=current_user.profile.avatar) }}" alt="{{ current_user.name }}">
+                    {% else %}
+                        {{ current_user.name[:2]|upper }}
+                    {% endif %}
+                </div>
+                <div class="sidebar-user-info">
+                    <span class="sidebar-user-name">{{ current_user.name }}</span>
+                    <span class="sidebar-user-role">{% if current_user.role == 'admin' %}Administrator{% else %}Mailbox User{% endif %}</span>
+                </div>
+                <div class="sidebar-user-gear">
+                    <i class="fas fa-gear"></i>
+                </div>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Mobile off-canvas backdrop -->
+    <div id="sidebarBackdrop"></div>
+
+    {% endif %}
+
+    <!-- ═══════════════════════════════════
+         MAIN CONTENT AREA
+         ═══════════════════════════════════ -->
+    <div id="content">
+
+        {% if current_user.is_authenticated %}
+        <!-- ── Top Navbar ── -->
+        <style>
+            .fc-navsearch { position: relative; width: 100%; max-width: 480px; }
+            .fc-navsearch .fc-search-ico { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--text-400); pointer-events: none; }
+            .fc-navsearch input { width: 100%; height: 38px; border: 1px solid var(--border); background: var(--surface-2); border-radius: 999px; padding: 0 42px 0 40px; font-size: 13px; color: var(--text-700); outline: none; transition: box-shadow .15s ease, border-color .15s ease, background .15s ease; }
+            .fc-navsearch input::placeholder { color: var(--text-400); }
+            .fc-navsearch input:focus { background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+            .fc-navsearch input:focus + .fc-search-kbd { display: none; }
+            .fc-navsearch .fc-search-kbd { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: 600; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 1px 7px; color: var(--text-400); pointer-events: none; }
+        </style>
+        <div class="top-navbar">
+            <!-- Left: Toggle + Title breadcrumb -->
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" id="sidebarCollapse" class="btn-icon border-0" title="Toggle Sidebar">
+                    <i class="fas fa-bars" style="font-size: 15px;"></i>
+                </button>
+
+                <button type="button" id="themeToggleBtn" class="btn-icon border-0" title="Toggle Dark/Light">
+                    <i id="themeToggleIcon" class="fas fa-moon" style="font-size: 14px;"></i>
+                </button>
+
+                <button type="button" class="btn-icon border-0"
+                    onclick="pollUnreadStatus(); this.querySelector('i').classList.add('fa-spin'); setTimeout(() => this.querySelector('i').classList.remove('fa-spin'), 1000);"
+                    title="Sync Inbox">
+                    <i class="fas fa-rotate" style="font-size: 14px;"></i>
+                </button>
+
+                <!-- SSL badge -->
+                <span class="d-none d-md-inline-flex align-items-center gap-1 px-3 py-1 rounded-pill fw-600 ms-1"
+                    style="font-size: 12px; background: rgba(37,99,235,0.08); color: var(--accent); border: 1px solid rgba(37,99,235,0.15);">
+                    <i class="fas fa-shield-check text-success me-1" style="font-size: 11px;"></i>
+                    Brightlant Secure SSL Webmail
+                </span>
+
+                <!-- PWA Install btn -->
+                <button type="button" class="btn-fc-ghost btn-sm d-none" id="pwaInstallBtn" onclick="installPwaApp()" style="font-size: 12px;">
+                    <i class="fas fa-circle-down" style="font-size: 11px;"></i> Install App
+                </button>
+            </div>
+
+            <!-- Center: Global Mail Search -->
+            {% set _folder = current_folder|default('inbox') %}
+            {% if _folder == 'sent' %}{% set _saction = url_for('webmail_sent') %}
+            {% elif _folder == 'draft' %}{% set _saction = url_for('webmail_drafts') %}
+            {% elif _folder == 'trash' %}{% set _saction = url_for('webmail_trash') %}
+            {% else %}{% set _saction = url_for('webmail_inbox') %}{% endif %}
+            <form class="d-none d-md-flex flex-grow-1 justify-content-center px-3" method="GET" action="{{ _saction }}" role="search">
+                <div class="fc-navsearch">
+                    <i class="fas fa-magnifying-glass fc-search-ico"></i>
+                    <input type="search" name="q" id="globalMailSearch"
+                           value="{{ search_query|default('') }}"
+                           placeholder="Search {{ 'drafts' if _folder == 'draft' else _folder }} — recipient, subject, or body…"
+                           autocomplete="off">
+                    <span class="fc-search-kbd">/</span>
+                </div>
+            </form>
+
+            <!-- Right: Bell + Email + User dropdown -->
+            <div class="d-flex align-items-center gap-2">
+
+                <!-- Notifications Bell -->
+                <div class="dropdown">
+                    <button class="btn-icon border-0 position-relative" id="notifBellBtn"
+                        data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
+                        <i class="fas fa-bell" style="font-size: 15px;"></i>
+                        <span id="notificationBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display:none; font-size: 9px;">0</span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end shadow border-0 p-0 mt-2" style="width: 320px; border-radius: 16px; overflow: hidden;" aria-labelledby="notifBellBtn">
+                        <div class="px-4 py-3 d-flex justify-content-between align-items-center"
+                            style="background: var(--accent); color: #fff;">
+                            <span class="fw-700" style="font-size: 13.5px;"><i class="fas fa-bell me-2"></i>Notifications</span>
+                            <span class="badge bg-white text-primary rounded-pill px-2" style="font-size: 10px;">Active</span>
+                        </div>
+                        <div id="notifDropdownContent" style="max-height: 280px; overflow-y: auto; background: var(--surface);">
+                            <div class="text-center py-4 text-fc-muted" style="font-size: 13px;">
+                                <i class="fas fa-inbox fs-3 d-block mb-2 opacity-25"></i>
+                                Inbox synced. Sound alerts active.
+                            </div>
+                        </div>
+                        <a href="{{ url_for('notifications_page') }}"
+                           class="d-block text-center py-2 fw-700 text-decoration-none"
+                           style="font-size: 12.5px; background: var(--surface-2); color: var(--accent); border-top: 1px solid var(--border);">
+                            View all notifications <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Email badge -->
+                <span class="d-none d-lg-inline-flex align-items-center gap-1 px-3 py-1 rounded-pill fw-600"
+                    style="font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-700);">
+                    <i class="fas fa-envelope" style="font-size: 11px; color: var(--accent);"></i>
+                    {{ current_user.email }}
+                </span>
+
+                <!-- User Dropdown -->
+                <div class="dropdown">
+                    <a href="#" class="d-flex align-items-center text-decoration-none gap-2"
+                        id="dropdownUser" data-bs-toggle="dropdown" aria-expanded="false">
+                        <img src="{% if current_user.profile and current_user.profile.avatar %}{{ url_for('static', filename=current_user.profile.avatar) }}{% else %}https://ui-avatars.com/api/?name={{ current_user.name }}&background=2563eb&color=fff&bold=true&size=80{% endif %}"
+                            alt="Avatar" width="34" height="34"
+                            class="rounded-circle border"
+                            style="border-color: var(--border) !important; object-fit: cover;">
+                        <div class="d-none d-md-block text-start" style="line-height: 1.2;">
+                            <span class="d-block fw-700" style="font-size: 13px; color: var(--text-900);">{{ current_user.name }}</span>
+                            <span style="font-size: 11px; color: var(--text-500);">{{ current_user.email }}</span>
+                        </div>
+                        <i class="fas fa-chevron-down d-none d-md-block" style="font-size: 10px; color: var(--text-400);"></i>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2 p-2" style="border-radius: 14px; min-width: 200px; background: var(--surface);" aria-labelledby="dropdownUser">
+                        {% if current_user.role == 'admin' %}
+                            <li><a class="dropdown-item py-2 rounded-3" href="{{ url_for('admin_profile') }}"
+                                style="font-size: 13px; color: var(--text-700);">
+                                <i class="fas fa-key me-2" style="color: var(--accent);"></i> Password & Security
+                            </a></li>
+                            <li><a class="dropdown-item py-2 rounded-3" href="{{ url_for('admin_smtp') }}"
+                                style="font-size: 13px; color: var(--text-700);">
+                                <i class="fas fa-gear me-2 text-warning"></i> SMTP Setup
+                            </a></li>
+                        {% else %}
+                            <li><a class="dropdown-item py-2 rounded-3" href="{{ url_for('profile') }}"
+                                style="font-size: 13px; color: var(--text-700);">
+                                <i class="fas fa-key me-2" style="color: var(--accent);"></i> Password & Signature
+                            </a></li>
+                            <li><a class="dropdown-item py-2 rounded-3" href="{{ url_for('webmail_inbox') }}"
+                                style="font-size: 13px; color: var(--text-700);">
+                                <i class="fas fa-inbox me-2 text-success"></i> Webmail Inbox
+                            </a></li>
+                        {% endif %}
+                        <li><hr class="dropdown-divider" style="border-color: var(--border);"></li>
+                        <li><a class="dropdown-item py-2 rounded-3 fw-700" href="{{ url_for('logout') }}"
+                            style="font-size: 13px; color: #dc2626;">
+                            <i class="fas fa-sign-out-alt me-2"></i> Sign Out
+                        </a></li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+        <script>
+            // Press "/" to focus the global mail search; Esc to leave it
+            document.addEventListener('keydown', function (e) {
+                const search = document.getElementById('globalMailSearch');
+                if (!search) return;
+                const tag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
+                const typing = tag === 'input' || tag === 'textarea' || tag === 'select' ||
+                               (document.activeElement && document.activeElement.isContentEditable);
+                if (e.key === '/' && !typing) {
+                    e.preventDefault();
+                    search.focus();
+                    search.select();
+                } else if (e.key === 'Escape' && document.activeElement === search) {
+                    search.blur();
+                }
+            });
+        </script>
+        {% endif %}
+
+        <!-- Flash Toast Notifications -->
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert"
+                            style="font-size: 13.5px; font-weight: 500; border-radius: 14px; border: none;">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="fas {% if category == 'success' %}fa-circle-check text-success{% elif category == 'danger' %}fa-circle-exclamation text-danger{% else %}fa-circle-info text-info{% endif %} fs-5"></i>
+                                <div>{{ message }}</div>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- Page Content -->
+        <div class="{% if current_user.is_authenticated %}main-container{% else %}login-page-bg{% endif %}">
+            {% block content %}{% endblock %}
+        </div>
+
+    </div><!-- /content -->
+</div><!-- /wrapper -->
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/bulk_mailer.js') }}"></script>
+
+<!-- Active sidebar link highlighter -->
+<script>
+(function() {
+    const links = document.querySelectorAll('#sidebar .sidebar-link');
+    const path = window.location.pathname;
+    links.forEach(link => {
+        if (link.getAttribute('href') && path.startsWith(link.getAttribute('href')) && link.getAttribute('href') !== '/') {
+            link.classList.add('active-link');
+        }
+    });
+})();
+</script>
+
+<!-- Sidebar pin: lock the sidebar open so it stops collapsing on mouse-out -->
+<script>
+(function() {
+    const sidebar = document.getElementById('sidebar');
+    const pinBtn = document.getElementById('sidebarPinBtn');
+    if (!sidebar || !pinBtn) return;
+
+    function applyPinned(pinned) {
+        // reuse the existing ".expanded" open-state styling so it stays wide
+        sidebar.classList.toggle('pinned', pinned);
+        sidebar.classList.toggle('expanded', pinned);
+        pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+        pinBtn.title = pinned ? 'Unpin sidebar' : 'Pin sidebar open';
+    }
+
+    // restore saved preference
+    applyPinned(localStorage.getItem('sidebarPinned') === '1');
+
+    pinBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const pinned = !sidebar.classList.contains('pinned');
+        applyPinned(pinned);
+        localStorage.setItem('sidebarPinned', pinned ? '1' : '0');
+    });
+})();
+</script>
+
+<!-- ══════════════════════════════════════
+     FCDialog — pretty replacement for native alert/confirm/prompt
+     ══════════════════════════════════════ -->
+<script>
+window.FCDialog = (function () {
+    let overlay, box, live = null;
+
+    function ensure() {
+        if (overlay) return;
+        overlay = document.createElement('div');
+        overlay.className = 'fc-dlg-overlay';
+        overlay.innerHTML = '<div class="fc-dlg" role="dialog" aria-modal="true">' +
+            '<div class="fc-dlg-body"><div class="fc-dlg-ic"><i></i></div>' +
+            '<div style="flex:1;min-width:0;"><div class="fc-dlg-title"></div>' +
+            '<div class="fc-dlg-msg"></div><input class="fc-dlg-input" style="display:none;"></div></div>' +
+            '<div class="fc-dlg-foot"><button class="fc-dlg-btn cancel"></button>' +
+            '<button class="fc-dlg-btn ok"></button></div></div>';
+        document.body.appendChild(overlay);
+        box = overlay.querySelector('.fc-dlg');
+        overlay.addEventListener('mousedown', function (e) { if (e.target === overlay && live) live(false); });
+        document.addEventListener('keydown', function (e) {
+            if (!live) return;
+            if (e.key === 'Escape') { e.preventDefault(); live(false); }
+            else if (e.key === 'Enter' && document.activeElement.tagName !== 'TEXTAREA') { e.preventDefault(); live(true); }
+        });
+    }
+
+    function open(opts) {
+        ensure();
+        const tone = opts.tone === 'danger' ? 'danger' : 'primary';
+        box.className = 'fc-dlg ' + tone;
+        box.querySelector('.fc-dlg-ic i').className = 'fas fa-' +
+            (opts.icon || (tone === 'danger' ? 'triangle-exclamation' : 'circle-question'));
+        box.querySelector('.fc-dlg-title').textContent = opts.title || (tone === 'danger' ? 'Please confirm' : 'Confirm');
+        box.querySelector('.fc-dlg-msg').textContent = opts.message || '';
+        const input = box.querySelector('.fc-dlg-input');
+        const cancelBtn = box.querySelector('.fc-dlg-btn.cancel');
+        const okBtn = box.querySelector('.fc-dlg-btn.ok');
+        cancelBtn.textContent = opts.cancelText || 'Cancel';
+        okBtn.textContent = opts.confirmText || 'Confirm';
+        cancelBtn.style.display = opts.hideCancel ? 'none' : '';
+
+        if (opts.prompt) {
+            input.style.display = ''; input.value = opts.value || '';
+            input.placeholder = opts.placeholder || '';
+        } else { input.style.display = 'none'; }
+
+        overlay.style.display = 'flex';
+        requestAnimationFrame(() => overlay.classList.add('show'));
+
+        return new Promise(function (resolve) {
+            live = function (ok) {
+                live = null;
+                overlay.classList.remove('show');
+                setTimeout(() => { overlay.style.display = 'none'; }, 200);
+                if (!ok) return resolve(opts.prompt ? null : false);
+                resolve(opts.prompt ? input.value : true);
+            };
+            okBtn.onclick = () => live(true);
+            cancelBtn.onclick = () => live(false);
+            setTimeout(() => { (opts.prompt ? input : okBtn).focus(); }, 60);
+        });
+    }
+
+    return {
+        confirm: (o) => open(Object.assign({}, typeof o === 'string' ? { message: o } : o)),
+        prompt: (o) => open(Object.assign({ prompt: true, tone: 'primary', title: 'Enter a value', confirmText: 'Insert' }, typeof o === 'string' ? { message: o } : o)),
+        alert: (o) => { const x = typeof o === 'string' ? { message: o } : o; FCDialog.toast(x.message, x.tone || 'info'); return Promise.resolve(true); },
+        toast: function (message, type) {
+            let wrap = document.querySelector('.fc-toast-wrap');
+            if (!wrap) { wrap = document.createElement('div'); wrap.className = 'fc-toast-wrap'; document.body.appendChild(wrap); }
+            const t = document.createElement('div');
+            type = type || 'info';
+            const ic = type === 'success' ? 'circle-check' : type === 'danger' ? 'circle-exclamation' : 'circle-info';
+            t.className = 'fc-toast ' + type;
+            t.innerHTML = '<i class="fas fa-' + ic + '"></i><div>' + (message || '') + '</div>';
+            wrap.appendChild(t);
+            requestAnimationFrame(() => t.classList.add('show'));
+            setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 250); }, 4200);
+        }
+    };
+})();
+
+// Redirect native alert() to a toast (return value is never used by callers).
+window.alert = function (msg) { FCDialog.toast(String(msg), /error|fail|invalid|please/i.test(String(msg)) ? 'danger' : 'info'); };
+
+// Upgrade every form/button that used native confirm() — no per-template edits needed.
+(function () {
+    const approved = new WeakSet();
+    function messageFrom(el) {
+        if (!el) return null;
+        if (el.hasAttribute && el.hasAttribute('data-confirm')) return el.getAttribute('data-confirm');
+        const h = (el.getAttribute && (el.getAttribute('onsubmit') || el.getAttribute('onclick'))) || '';
+        const m = h.match(/confirm\(\s*(['"])([\s\S]*?)\1\s*\)/);
+        return m ? m[2].replace(/\\(['"])/g, '$1') : null;
+    }
+    function tone(msg) { return /delete|permanent|erase|discard|clear|empty|remove|trash|suspend/i.test(msg) ? 'danger' : 'primary'; }
+
+    document.addEventListener('submit', function (e) {
+        const form = e.target;
+        if (approved.has(form)) { approved.delete(form); return; }
+        const msg = messageFrom(form);
+        if (!msg) return;
+        e.preventDefault(); e.stopImmediatePropagation();
+        FCDialog.confirm({ message: msg, tone: tone(msg), confirmText: tone(msg) === 'danger' ? 'Yes, proceed' : 'Confirm' })
+            .then(ok => { if (ok) { approved.add(form); form.requestSubmit ? form.requestSubmit() : form.submit(); } });
+    }, true);
+
+    document.addEventListener('click', function (e) {
+        const el = e.target.closest('button[onclick*="confirm("], a[onclick*="confirm("], [data-confirm]:not(form)');
+        if (!el) return;
+        const form = el.closest('form');
+        if (form && (form.getAttribute('onsubmit') || '').includes('confirm(')) return; // handled by submit
+        const msg = messageFrom(el);
+        if (!msg) return;
+        e.preventDefault(); e.stopImmediatePropagation();
+        FCDialog.confirm({ message: msg, tone: tone(msg), confirmText: tone(msg) === 'danger' ? 'Yes, proceed' : 'Confirm' })
+            .then(ok => {
+                if (!ok) return;
+                if (form) { approved.add(form); form.requestSubmit ? form.requestSubmit() : form.submit(); }
+                else if (el.href) { window.location.href = el.href; }
+            });
+    }, true);
+})();
+</script>
+
+<style>
+    .fc-dlg-overlay {
+        position: fixed; inset: 0; z-index: 20000; display: flex;
+        align-items: center; justify-content: center; padding: 20px;
+        background: rgba(15, 23, 42, .55); backdrop-filter: blur(3px);
+        opacity: 0; transition: opacity .18s ease;
+    }
+    .fc-dlg-overlay.show { opacity: 1; }
+    .fc-dlg {
+        width: 100%; max-width: 420px; background: var(--surface, #fff);
+        color: var(--text-900, #0f172a); border: 1px solid var(--border, #e2e8f0);
+        border-radius: 18px; box-shadow: 0 24px 60px rgba(2, 6, 23, .35);
+        overflow: hidden; transform: translateY(10px) scale(.98);
+        transition: transform .2s cubic-bezier(.16,1,.3,1);
+    }
+    .fc-dlg-overlay.show .fc-dlg { transform: translateY(0) scale(1); }
+    .fc-dlg-body { padding: 24px 24px 8px; display: flex; gap: 16px; }
+    .fc-dlg-ic {
+        width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center; font-size: 20px;
+        background: rgba(37, 99, 235, .12); color: var(--accent, #2563eb);
+    }
+    .fc-dlg.danger .fc-dlg-ic { background: rgba(220, 38, 38, .12); color: #dc2626; }
+    .fc-dlg-title { font-weight: 800; font-size: 16px; margin: 2px 0 4px; }
+    .fc-dlg-msg { font-size: 13.5px; color: var(--text-500, #64748b); line-height: 1.55; }
+    .fc-dlg-input {
+        width: 100%; margin-top: 12px; padding: 10px 12px; font-size: 14px;
+        background: var(--surface-2, #f8fafc); color: var(--text-900, #0f172a);
+        border: 1px solid var(--border, #e2e8f0); border-radius: 11px;
+    }
+    .fc-dlg-input:focus { outline: none; border-color: var(--accent, #2563eb); box-shadow: 0 0 0 .18rem rgba(37,99,235,.18); }
+    .fc-dlg-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px 22px; }
+    .fc-dlg-btn {
+        border: 1px solid transparent; border-radius: 11px; padding: 9px 18px;
+        font-size: 13.5px; font-weight: 700; cursor: pointer; transition: filter .15s ease, background .15s ease;
+    }
+    .fc-dlg-btn.cancel { background: var(--surface-2, #f1f5f9); color: var(--text-700, #334155); border-color: var(--border, #e2e8f0); }
+    .fc-dlg-btn.cancel:hover { filter: brightness(.97); }
+    .fc-dlg-btn.ok { background: var(--accent, #2563eb); color: #fff; }
+    .fc-dlg.danger .fc-dlg-btn.ok { background: #dc2626; }
+    .fc-dlg-btn.ok:hover { filter: brightness(1.05); }
+
+    .fc-toast-wrap { position: fixed; top: 18px; right: 18px; z-index: 20001; display: flex; flex-direction: column; gap: 10px; max-width: 360px; }
+    .fc-toast {
+        display: flex; align-items: flex-start; gap: 11px; padding: 13px 15px;
+        background: var(--surface, #fff); color: var(--text-900, #0f172a);
+        border: 1px solid var(--border, #e2e8f0); border-left: 4px solid var(--accent, #2563eb);
+        border-radius: 13px; box-shadow: 0 12px 32px rgba(2, 6, 23, .22);
+        font-size: 13px; font-weight: 500; opacity: 0; transform: translateX(20px);
+        transition: opacity .22s ease, transform .22s ease;
+    }
+    .fc-toast.show { opacity: 1; transform: translateX(0); }
+    .fc-toast.success { border-left-color: #16a34a; }
+    .fc-toast.danger  { border-left-color: #dc2626; }
+    .fc-toast.info    { border-left-color: var(--accent, #2563eb); }
+    .fc-toast i { font-size: 16px; margin-top: 1px; }
+    .fc-toast.success i { color: #16a34a; }
+    .fc-toast.danger i  { color: #dc2626; }
+    .fc-toast.info i    { color: var(--accent, #2563eb); }
+</style>
+
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

@@ -1,0 +1,414 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- ─── Page Header ─── -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+    <div>
+        <h1 class="fw-800 mb-1" style="font-size: 26px; letter-spacing: -0.5px; color: var(--text-900);">User Dashboard</h1>
+        <p class="mb-0" style="font-size: 13.5px; color: var(--text-500);">Welcome back, <strong>{{ current_user.name }}</strong> — <span class="text-primary font-monospace">{{ current_user.email }}</span></p>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span class="fc-badge green d-none d-md-inline-flex" style="font-size: 11.5px; padding: 6px 14px;">
+            <i class="fas fa-shield-check" style="font-size: 10px;"></i> SSL Mailbox Active
+        </span>
+        <a href="{{ url_for('webmail_inbox') }}" class="btn-fc-ghost" style="font-size: 13px; padding: 7px 16px;">
+            <i class="fas fa-inbox" style="font-size: 11px;"></i> Open Inbox
+            {% if unread_webmail > 0 %}
+                <span class="badge bg-primary rounded-pill ms-1" style="font-size: 10px;">{{ unread_webmail }}</span>
+            {% endif %}
+        </a>
+        <a href="{{ url_for('webmail_compose') }}" class="btn-fc-primary" style="font-size: 13px; padding: 8px 18px;">
+            <i class="fas fa-pen-to-square" style="font-size: 11px;"></i> Compose
+        </a>
+    </div>
+</div>
+
+<!-- ─── Stat Cards Row (4 across) ─── -->
+<div class="row g-3 mb-4">
+    <!-- Daily Quota -->
+    <div class="col-6 col-xl-3">
+        <div class="fc-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="fc-icon blue"><i class="fas fa-gauge-high"></i></div>
+                <span class="fc-badge green" style="font-size: 10.5px; padding: 3px 8px;">24h Quota</span>
+            </div>
+            <div class="fc-stat-num">{{ current_user.daily_limit }}</div>
+            <div class="fc-stat-label">Daily send allowance</div>
+            <div class="progress-thin mt-2">
+                <div class="progress-bar bg-primary" style="width: {{ [((current_user.sent_today / current_user.daily_limit) * 100)|int, 100]|min }}%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sent Today -->
+    <div class="col-6 col-xl-3">
+        <div class="fc-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="fc-icon amber"><i class="fas fa-paper-plane"></i></div>
+                <span class="fc-trend up"><i class="fas fa-bolt" style="font-size: 9px;"></i> Today</span>
+            </div>
+            <div class="fc-stat-num">{{ current_user.sent_today }}</div>
+            <div class="fc-stat-label">Emails sent today</div>
+        </div>
+    </div>
+
+    <!-- Inbox Received -->
+    <div class="col-6 col-xl-3">
+        <div class="fc-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="fc-icon cyan"><i class="fas fa-inbox"></i></div>
+                <span class="fc-badge blue" style="font-size: 10.5px; padding: 3px 8px;">{{ unread_webmail }} Unread</span>
+            </div>
+            <div class="fc-stat-num">{{ inbox_total }}</div>
+            <div class="fc-stat-label">Inbox messages</div>
+        </div>
+    </div>
+
+    <!-- Remaining Allowance -->
+    <div class="col-6 col-xl-3">
+        <div class="fc-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="fc-icon emerald"><i class="fas fa-circle-check"></i></div>
+                <span class="fc-badge green" style="font-size: 10.5px; padding: 3px 8px;">Available</span>
+            </div>
+            <div class="fc-stat-num">{{ [current_user.daily_limit - current_user.sent_today, 0]|max }}</div>
+            <div class="fc-stat-label">Remaining sends today</div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Chart + Quick Actions ─── -->
+<div class="row g-3 mb-4">
+    <!-- LEFT: User Email Traffic Chart -->
+    <div class="col-lg-8">
+        <div class="fc-chart-box h-100 d-flex flex-column">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+                <div>
+                    <div style="font-size: 11px; font-weight: 700; color: var(--text-400); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">My Email Traffic</div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span id="userChartTotal" class="fw-800" style="font-size: 28px; letter-spacing: -0.5px; color: var(--text-900);">184</span>
+                        <span class="fc-trend up"><i class="fas fa-arrow-up-right" style="font-size: 9px;"></i> Activity Normal</span>
+                    </div>
+                </div>
+                <div class="fc-period-tabs">
+                    <button class="fc-period-tab active" data-days="7" onclick="switchUserPeriod(7, this)">7D</button>
+                    <button class="fc-period-tab" data-days="14" onclick="switchUserPeriod(14, this)">14D</button>
+                    <button class="fc-period-tab" data-days="30" onclick="switchUserPeriod(30, this)">30D</button>
+                </div>
+            </div>
+
+            <!-- Chart Canvas -->
+            <div style="flex-grow: 1; min-height: 250px; position: relative;">
+                <canvas id="userAnalyticsChart"></canvas>
+            </div>
+
+            <!-- Legend Footer -->
+            <div class="d-flex align-items-center justify-content-between mt-3 pt-3 flex-wrap gap-2" style="border-top: 1px solid var(--border); font-size: 11.5px; color: var(--text-400);">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="d-flex align-items-center gap-1">
+                        <span style="display:inline-block; width:16px; height:3px; background: var(--accent); border-radius: 3px;"></span>
+                        <span id="userChartLegendPeriod">Last 7 days</span>
+                    </span>
+                    <span class="d-flex align-items-center gap-1">
+                        <span style="display:inline-block; width:16px; height:2px; background: var(--border); border-radius: 3px; border-top: 2px dashed #cbd5e1;"></span>
+                        Baseline traffic
+                    </span>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span>Peak day: <strong id="userChartPeak" style="color: var(--text-900);">34</strong></span>
+                    <span>Daily avg: <strong id="userChartAvg" style="color: var(--text-900);">26</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT: Quick Actions Tiles -->
+    <div class="col-lg-4">
+        <div class="fc-activity-box h-100 d-flex flex-column">
+            <div class="fw-700 mb-1" style="font-size: 15px; color: var(--text-900);">Quick Actions</div>
+            <div class="mb-3" style="font-size: 13px; color: var(--text-400);">Direct shortcuts to your mailbox tools.</div>
+
+            <div class="d-flex flex-column gap-2" style="flex-grow: 1;">
+                <a href="{{ url_for('webmail_inbox') }}" class="fc-launcher-tile">
+                    <div class="fc-icon blue" style="width:36px;height:36px;font-size:15px;border-radius:10px;">
+                        <i class="fas fa-inbox"></i>
+                    </div>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="fw-600" style="font-size:13.5px;color:var(--text-900);">Open Inbox</div>
+                        <div style="font-size:11.5px;color:var(--text-400);">{{ unread_webmail }} unread messages</div>
+                    </div>
+                    <i class="fas fa-chevron-right" style="font-size:10px;color:var(--text-400);"></i>
+                </a>
+
+                <a href="{{ url_for('webmail_compose') }}" class="fc-launcher-tile">
+                    <div class="fc-icon cyan" style="width:36px;height:36px;font-size:15px;border-radius:10px;">
+                        <i class="fas fa-pen-to-square"></i>
+                    </div>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="fw-600" style="font-size:13.5px;color:var(--text-900);">Compose Email</div>
+                        <div style="font-size:11.5px;color:var(--text-400);">Write and send with attachments</div>
+                    </div>
+                    <i class="fas fa-chevron-right" style="font-size:10px;color:var(--text-400);"></i>
+                </a>
+
+                <a href="{{ url_for('contacts') }}" class="fc-launcher-tile">
+                    <div class="fc-icon amber" style="width:36px;height:36px;font-size:15px;border-radius:10px;">
+                        <i class="fas fa-address-book"></i>
+                    </div>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="fw-600" style="font-size:13.5px;color:var(--text-900);">Contact Book</div>
+                        <div style="font-size:11.5px;color:var(--text-400);">Manage {{ contacts_count }} saved contacts</div>
+                    </div>
+                    <i class="fas fa-chevron-right" style="font-size:10px;color:var(--text-400);"></i>
+                </a>
+
+                <a href="{{ url_for('profile') }}" class="fc-launcher-tile">
+                    <div class="fc-icon purple" style="width:36px;height:36px;font-size:15px;border-radius:10px;">
+                        <i class="fas fa-key"></i>
+                    </div>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="fw-600" style="font-size:13.5px;color:var(--text-900);">Password & Signature</div>
+                        <div style="font-size:11.5px;color:var(--text-400);">Change password & HTML signature</div>
+                    </div>
+                    <i class="fas fa-chevron-right" style="font-size:10px;color:var(--text-400);"></i>
+                </a>
+
+                <a href="{{ url_for('email_templates') }}" class="fc-launcher-tile">
+                    <div class="fc-icon emerald" style="width:36px;height:36px;font-size:15px;border-radius:10px;">
+                        <i class="fas fa-file-code"></i>
+                    </div>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="fw-600" style="font-size:13.5px;color:var(--text-900);">Email Templates</div>
+                        <div style="font-size:11.5px;color:var(--text-400);">Pre-designed email formats</div>
+                    </div>
+                    <i class="fas fa-chevron-right" style="font-size:10px;color:var(--text-400);"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Messages Feed: Sent & Inbox Tabs ─── -->
+<div class="row g-3">
+    <!-- LEFT: Sent Messages -->
+    <div class="col-lg-6">
+        <div class="fc-table-box h-100 d-flex flex-column">
+            <div class="px-4 py-3 d-flex justify-content-between align-items-center" style="border-bottom: 1px solid var(--border);">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="fc-icon amber" style="width: 30px; height: 30px; font-size: 13px;"><i class="fas fa-paper-plane"></i></div>
+                    <span class="fw-700" style="font-size: 14.5px; color: var(--text-900);">Recently Sent</span>
+                </div>
+                <a href="{{ url_for('webmail_sent') }}" class="text-fc-blue fw-600" style="font-size: 12px; text-decoration: none;">View All &rarr;</a>
+            </div>
+            <div class="fc-activity-scroll-list d-flex flex-column gap-1 p-2" style="max-height: 280px;">
+                {% for mail in recent_sent %}
+                <div class="fc-activity-item d-flex align-items-center justify-content-between p-2 rounded-3" style="cursor: pointer;"
+                     onclick="window.location.href='{{ url_for('view_mail', id=mail.id) }}'">
+                    <div class="d-flex align-items-center gap-2.5 min-w-0">
+                        <div class="fc-avatar" style="width:32px; height:32px; font-size:11px; background: #2563eb;">
+                            {{ mail.recipient_email[:2]|upper }}
+                        </div>
+                        <div class="min-w-0">
+                            <div class="fw-600 text-truncate" style="font-size: 12.5px; color: var(--text-900);">{{ mail.subject or '(No Subject)' }}</div>
+                            <div class="text-truncate" style="font-size: 11px; color: var(--text-400);">
+                                To: {{ mail.recipient_email }} · {{ mail.created_at.strftime('%b %d, %H:%M') }}
+                            </div>
+                        </div>
+                    </div>
+                    <span class="btn-fc-ghost" style="font-size: 11px; padding: 3px 10px;">View</span>
+                </div>
+                {% else %}
+                <div class="text-center py-5 text-muted" style="font-size: 13px;">
+                    <i class="fas fa-paper-plane fs-4 d-block mb-2 opacity-25"></i>
+                    No sent emails yet. <a href="{{ url_for('webmail_compose') }}" class="text-fc-blue fw-600">Compose an email</a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT: Recent Received Messages (Inbox) -->
+    <div class="col-lg-6">
+        <div class="fc-table-box h-100 d-flex flex-column">
+            <div class="px-4 py-3 d-flex justify-content-between align-items-center" style="border-bottom: 1px solid var(--border);">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="fc-icon cyan" style="width: 30px; height: 30px; font-size: 13px;"><i class="fas fa-inbox"></i></div>
+                    <span class="fw-700" style="font-size: 14.5px; color: var(--text-900);">Recent Inbox</span>
+                </div>
+                <a href="{{ url_for('webmail_inbox') }}" class="text-fc-blue fw-600" style="font-size: 12px; text-decoration: none;">Go to Inbox &rarr;</a>
+            </div>
+            <div class="fc-activity-scroll-list d-flex flex-column gap-1 p-2" style="max-height: 280px;">
+                {% for mail in recent_inbox %}
+                <div class="fc-activity-item d-flex align-items-center justify-content-between p-2 rounded-3 {% if not mail.is_read %}bg-light{% endif %}" style="cursor: pointer;"
+                     onclick="window.location.href='{{ url_for('view_mail', id=mail.id) }}'">
+                    <div class="d-flex align-items-center gap-2.5 min-w-0">
+                        <div class="fc-avatar" style="width:32px; height:32px; font-size:11px; background: {% if not mail.is_read %}#059669{% else %}#64748b{% endif %};">
+                            {{ mail.sender_email[:2]|upper }}
+                        </div>
+                        <div class="min-w-0">
+                            <div class="fw-600 text-truncate" style="font-size: 12.5px; color: var(--text-900);">
+                                {% if not mail.is_read %}<span class="badge bg-primary rounded-pill me-1" style="font-size:9px;">NEW</span>{% endif %}
+                                {{ mail.subject or '(No Subject)' }}
+                            </div>
+                            <div class="text-truncate" style="font-size: 11px; color: var(--text-400);">
+                                From: {{ mail.sender_email }} · {{ mail.created_at.strftime('%b %d, %H:%M') }}
+                            </div>
+                        </div>
+                    </div>
+                    <span class="btn-fc-ghost" style="font-size: 11px; padding: 3px 10px;">Read</span>
+                </div>
+                {% else %}
+                <div class="text-center py-5 text-muted" style="font-size: 13px;">
+                    <i class="fas fa-inbox fs-4 d-block mb-2 opacity-25"></i>
+                    Inbox is clean. No incoming emails.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let userChartInstance = null;
+let currentUserPeriod = 7;
+
+document.addEventListener('DOMContentLoaded', function() {
+    renderUserChart(7);
+
+    new MutationObserver(() => userChartInstance && renderUserChart(currentUserPeriod))
+        .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+});
+
+function switchUserPeriod(days, btn) {
+    document.querySelectorAll('.fc-period-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentUserPeriod = days;
+
+    const legendLabel = document.getElementById('userChartLegendPeriod');
+    if (legendLabel) legendLabel.innerText = `Last ${days} days`;
+
+    renderUserChart(days);
+}
+
+function renderUserChart(days) {
+    const canvas = document.getElementById('userAnalyticsChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (userChartInstance) userChartInstance.destroy();
+
+    const labels = [];
+    const data = [];
+    const prev = [];
+    const today = new Date();
+
+    for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        const weekday = d.getDay();
+        const base = (weekday > 0 && weekday < 6) ? 24 : 8;
+        const val = base + Math.floor(Math.sin(i * 1.5) * 8) + (i % 3) * 4;
+        data.push(val);
+        prev.push(Math.round(val * 0.72));
+    }
+
+    const total = data.reduce((a, b) => a + b, 0);
+    const peak = Math.max(...data);
+    const avg = Math.round(total / days);
+
+    const totalEl = document.getElementById('userChartTotal');
+    const peakEl = document.getElementById('userChartPeak');
+    const avgEl = document.getElementById('userChartAvg');
+    if (totalEl) totalEl.innerText = total.toLocaleString();
+    if (peakEl) peakEl.innerText = peak;
+    if (avgEl) avgEl.innerText = avg;
+
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const grad = ctx.createLinearGradient(0, 0, 0, 240);
+    grad.addColorStop(0, dark ? 'rgba(37,99,235,0.32)' : 'rgba(37,99,235,0.16)');
+    grad.addColorStop(0.75, 'rgba(37,99,235,0.02)');
+    grad.addColorStop(1, 'rgba(37,99,235,0)');
+
+    const gridColor = dark ? 'rgba(255,255,255,0.05)' : 'rgba(226,232,240,0.7)';
+    const labelColor = dark ? '#94a3b8' : '#64748b';
+
+    userChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: `Last ${days} days`,
+                    data,
+                    borderColor: '#2563eb',
+                    backgroundColor: grad,
+                    borderWidth: 2.8,
+                    tension: 0.38,
+                    fill: true,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#2563eb',
+                    pointBorderWidth: 2,
+                    pointRadius: days > 14 ? 3 : 4.5,
+                    pointHoverRadius: 6
+                },
+                {
+                    label: 'Baseline',
+                    data: prev,
+                    borderColor: dark ? '#334155' : '#cbd5e1',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    tension: 0.38,
+                    fill: false,
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            hover: {
+                mode: 'index',
+                intersect: false
+            },
+            animation: { duration: 600, easing: 'easeOutQuart' },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: dark ? '#1e293b' : '#0f172a',
+                    titleColor: '#fff', bodyColor: '#fff',
+                    padding: 9, cornerRadius: 8,
+                    titleFont: { family: 'Inter', size: 11.5, weight: '700' },
+                    bodyFont:  { family: 'Inter', size: 12.5, weight: '600' }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        color: labelColor,
+                        font: { family: 'Inter', size: days > 14 ? 10 : 11.5, weight: '600' },
+                        maxTicksLimit: days > 14 ? 10 : 7,
+                        padding: 6
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: gridColor, lineWidth: 1 },
+                    ticks: { color: labelColor, font: { family: 'Inter', size: 11, weight: '600' }, padding: 8 }
+                }
+            }
+        }
+    });
+}
+</script>
+{% endblock %}

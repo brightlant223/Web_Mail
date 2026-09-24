@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- ─── Page Header ─── -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+    <div>
+        <h1 class="fw-800 mb-1" style="font-size: 26px; letter-spacing: -0.5px; color: var(--text-900);">Password & Mailbox Profile</h1>
+        <p class="mb-0" style="font-size: 13.5px; color: var(--text-500);">Manage your account credentials, security password, and custom email signature.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="fc-badge green" style="font-size: 12px; padding: 6px 14px;">
+            <i class="fas fa-shield-check" style="font-size: 11px;"></i> Active SSL Mailbox
+        </span>
+        <a href="{{ url_for('user_dashboard') }}" class="btn-fc-ghost" style="font-size: 13px; padding: 7px 16px;">
+            <i class="fas fa-arrow-left" style="font-size: 11px;"></i> Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- LEFT: Mailbox Overview Card -->
+    <div class="col-lg-4">
+        <div class="fc-card p-4 text-center">
+            <div class="fc-avatar mx-auto mb-3" style="width: 80px; height: 80px; font-size: 26px; background: var(--accent); border: 3px solid rgba(37,99,235,0.15);">
+                {{ current_user.name[:2]|upper }}
+            </div>
+            <h5 class="fw-800 mb-1" style="font-size: 18px; color: var(--text-900);">{{ current_user.name }}</h5>
+            <span class="fc-badge blue mb-3" style="font-size: 11px; padding: 3px 12px;">{{ current_user.email }}</span>
+            <div style="font-size: 11.5px; color: var(--text-400); margin-bottom: 20px;">Role: Enterprise Mailbox User</div>
+
+            <div class="p-3 text-start rounded-3" style="background: var(--surface-2); border: 1px solid var(--border);">
+                <div class="d-flex justify-content-between py-1.5" style="border-bottom: 1px solid var(--border); font-size: 12px;">
+                    <span style="color: var(--text-400);">Daily Quota:</span>
+                    <strong style="color: var(--text-900);">{{ current_user.daily_limit }} Mails/Day</strong>
+                </div>
+                <div class="d-flex justify-content-between py-1.5" style="border-bottom: 1px solid var(--border); font-size: 12px;">
+                    <span style="color: var(--text-400);">Sent Today:</span>
+                    <strong class="text-primary">{{ current_user.sent_today }} Mails</strong>
+                </div>
+                <div class="d-flex justify-content-between py-1.5" style="border-bottom: 1px solid var(--border); font-size: 12px;">
+                    <span style="color: var(--text-400);">Remaining:</span>
+                    <strong class="text-success">{{ [current_user.daily_limit - current_user.sent_today, 0]|max }} Mails</strong>
+                </div>
+                <div class="d-flex justify-content-between py-1.5" style="font-size: 12px;">
+                    <span style="color: var(--text-400);">Department:</span>
+                    <strong style="color: var(--text-900);">{{ profile.department or 'Operations' }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT: Edit Profile & Password Form -->
+    <div class="col-lg-8">
+        <form action="{{ url_for('profile') }}" method="POST">
+            <!-- Card 1: Change Password -->
+            <div class="fc-card p-4 mb-4">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="fc-icon blue" style="width: 40px; height: 40px; font-size: 16px;">
+                        <i class="fas fa-key"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-800 mb-0" style="font-size: 16px; color: var(--text-900);">Change Account Password</h5>
+                        <p class="mb-0" style="font-size: 12px; color: var(--text-500);">Keep your mailbox password secure</p>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-700" style="font-size: 11.5px; color: var(--text-700); text-transform: uppercase;">Current Password</label>
+                        <div class="position-relative">
+                            <input type="password" id="user_current_password" name="current_password" class="form-control"
+                                   placeholder="Current password"
+                                   style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; font-size: 13px; padding: 9px 36px 9px 12px;">
+                            <button type="button" class="btn btn-link position-absolute top-50 end-0 translate-middle-y text-muted border-0 p-0 me-2.5"
+                                    onclick="toggleUserPass('user_current_password', this)">
+                                <i class="fas fa-eye" style="font-size: 12px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-700" style="font-size: 11.5px; color: var(--text-700); text-transform: uppercase;">New Password</label>
+                        <div class="position-relative">
+                            <input type="password" id="user_new_password" name="new_password" class="form-control"
+                                   placeholder="New password (min 6)"
+                                   style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; font-size: 13px; padding: 9px 36px 9px 12px;">
+                            <button type="button" class="btn btn-link position-absolute top-50 end-0 translate-middle-y text-muted border-0 p-0 me-2.5"
+                                    onclick="toggleUserPass('user_new_password', this)">
+                                <i class="fas fa-eye" style="font-size: 12px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-700" style="font-size: 11.5px; color: var(--text-700); text-transform: uppercase;">Confirm New</label>
+                        <div class="position-relative">
+                            <input type="password" id="user_confirm_password" name="confirm_password" class="form-control"
+                                   placeholder="Confirm new password"
+                                   style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; font-size: 13px; padding: 9px 36px 9px 12px;">
+                            <button type="button" class="btn btn-link position-absolute top-50 end-0 translate-middle-y text-muted border-0 p-0 me-2.5"
+                                    onclick="toggleUserPass('user_confirm_password', this)">
+                                <i class="fas fa-eye" style="font-size: 12px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 2: Account Details & Signature -->
+            <div class="fc-card p-4">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="fc-icon amber" style="width: 40px; height: 40px; font-size: 16px;">
+                        <i class="fas fa-user-pen"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-800 mb-0" style="font-size: 16px; color: var(--text-900);">Profile & HTML Email Signature</h5>
+                        <p class="mb-0" style="font-size: 12px; color: var(--text-500);">Your display name, department, and custom signature</p>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-700" style="font-size: 11.5px; color: var(--text-700); text-transform: uppercase;">Full Display Name</label>
+                        <input type="text" name="name" class="form-control"
+                               value="{{ current_user.name }}" required
+                               style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; font-size: 13px; padding: 10px 14px;">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-700" style="font-size: 11.5px; color: var(--text-700); text-transform: uppercase;">Phone Number</label>
+                        <input type="text" name="phone" class="form-control"
+                               value="{{ profile.phone or '' }}" placeholder="+91 98765 43210"
+                               style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; font-size: 13px; padding: 10px 14px;">
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label fw-700" style="font-size: 11.5px; color: var(--text-700); text-transform: uppercase;">Department / Job Title</label>
+                        <input type="text" name="department" class="form-control"
+                               value="{{ profile.department or 'Sales & Operations' }}"
+                               style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; font-size: 13px; padding: 10px 14px;">
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="form-label fw-700 mb-0" style="font-size: 11.5px; color: var(--text-700); text-transform: uppercase;">HTML Email Signature</label>
+                        <span style="font-size: 11px; color: var(--text-400);">Appends automatically to outgoing emails</span>
+                    </div>
+                    <textarea name="signature_html" class="form-control font-monospace" rows="4"
+                              style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; font-size: 12.5px; padding: 12px;">{{ profile.signature_html or '<p>Best regards,<br><strong>' ~ current_user.name ~ '</strong><br><span style="color: #64748b;">Brightlant Webmail User</span></p>' }}</textarea>
+                </div>
+
+                <button type="submit" class="btn-fc-primary w-100 py-3" style="font-size: 14px;">
+                    <i class="fas fa-floppy-disk me-1"></i> Save Profile & Password Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleUserPass(id, btn) {
+    const el = document.getElementById(id);
+    const icon = btn.querySelector('i');
+    if (!el || !icon) return;
+
+    if (el.type === 'password') {
+        el.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        el.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+}
+</script>
+{% endblock %}
+

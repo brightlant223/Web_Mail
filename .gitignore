@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Secrets / config
+.env
+*.env
+config_local.py
+
+# Database (contains SMTP credentials & user data — never commit)
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Runtime user uploads
+uploads/
+static/uploads/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

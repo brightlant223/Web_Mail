@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="fc-webmail-container">
+    <!-- ══════════════════════════════════════
+         LEFT PANE: Trash Messages List (380px)
+         ══════════════════════════════════════ -->
+    <div class="fc-webmail-list-pane">
+        <!-- List Header -->
+        <div class="fc-webmail-list-header">
+            <div class="fc-webmail-title-row">
+                <div class="fc-webmail-title">
+                    <i class="fas fa-trash-can text-danger"></i>
+                    <span>Trash Bin</span>
+                    <span class="badge rounded-pill bg-danger bg-opacity-10 text-danger fw-700" style="font-size: 11px;">
+                        {{ messages|length }} Deleted
+                    </span>
+                </div>
+                {% if messages %}
+                <form action="{{ url_for('empty_trash') }}" method="POST" onsubmit="return confirm('Empty entire trash? All messages will be permanently erased.');">
+                    <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill py-1 px-2.5 fw-700" style="font-size: 11px;">
+                        <i class="fas fa-dumpster-fire me-1"></i> Empty Trash
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+
+            <!-- Search input -->
+            <div class="fc-webmail-search-box">
+                <i class="fas fa-search"></i>
+                <input type="text"
+                       id="trashSearchInput"
+                       class="fc-webmail-search-input"
+                       placeholder="Search deleted emails..."
+                       value="{{ search_query }}"
+                       autocomplete="off">
+            </div>
+        </div>
+
+        <!-- Scrollable Messages List Items -->
+        <div class="fc-webmail-items-scroll" id="trashListContainer">
+            {% for m in messages %}
+                <div class="fc-mail-item {% if selected_msg and selected_msg.id == m.id %}selected{% endif %}"
+                     id="trash-card-{{ m.id }}"
+                     data-id="{{ m.id }}"
+                     data-sender="{{ m.sender_name|lower }} {{ m.sender_email|lower }}"
+                     data-subject="{{ m.subject|lower }}"
+                     data-body="{{ m.body_html|striptags|lower }}"
+                     onclick="selectTrashEmail({{ m.id }})">
+                    
+                    <div class="fc-mail-avatar" style="background: linear-gradient(135deg, #dc2626, #b91c1c);">
+                        <i class="fas fa-trash" style="font-size: 12px;"></i>
+                    </div>
+
+                    <div class="fc-mail-info">
+                        <div class="fc-mail-header-line">
+                            <span class="fc-mail-sender-name">{{ m.sender_name or m.sender_email }}</span>
+                            <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
+                                <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-1.5 py-0.5 fw-700" style="font-size: 9.5px;">
+                                    Trash
+                                </span>
+                                <span class="fc-mail-time">{{ m.created_at.strftime('%b %d') }}</span>
+                            </div>
+                        </div>
+
+                        <div class="fc-mail-subject">
+                            <span>{{ m.subject or '(No Subject)' }}</span>
+                        </div>
+
+                        <div class="fc-mail-snippet">
+                            {{ m.body_html|striptags }}
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="fc-view-empty py-5">
+                    <i class="fas fa-trash-can fs-1 mb-3 opacity-25"></i>
+                    <h6 class="fw-700 text-dark mb-1">Trash is empty</h6>
+                    <p class="small text-muted mb-0" style="max-width: 220px;">No deleted messages found. Items moved to trash will appear here.</p>
+                </div>
+            {% endfor %}
+            <div id="noTrashResults" class="text-center py-5 d-none text-muted">
+                <i class="fas fa-magnifying-glass fs-3 mb-2 opacity-30 d-block"></i>
+                <small>No matching deleted emails found.</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         RIGHT PANE: Trash Reading & Restore View
+         ══════════════════════════════════════ -->
+    <div class="fc-webmail-view-pane" id="trashViewPane">
+        {% if selected_msg %}
+            <!-- Toolbar -->
+            <div class="fc-webmail-view-toolbar" id="trashToolbar">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3 py-1.5 fw-700 font-mono" style="font-size: 11px;">
+                        <i class="fas fa-trash-can me-1"></i> IN TRASH BIN
+                    </span>
+                </div>
+
+                <div class="d-flex align-items-center gap-2">
+                    <form id="restoreForm" action="{{ url_for('restore_mail', id=selected_msg.id) }}" method="POST" class="d-inline">
+                        <button type="submit" class="btn btn-outline-success btn-sm rounded-pill px-3 fw-700">
+                            <i class="fas fa-rotate-left me-1"></i> Restore to Inbox
+                        </button>
+                    </form>
+                    <form id="permanentDeleteForm" action="{{ url_for('delete_mail', id=selected_msg.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Permanently delete this email? This cannot be undone.');">
+                        <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-700">
+                            <i class="fas fa-xmark me-1"></i> Delete Permanently
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Scrollable Content -->
+            <div class="fc-webmail-content-scroll" id="trashContentScroll">
+                <!-- Warning Notice -->
+                <div class="alert alert-danger bg-danger bg-opacity-10 border-0 rounded-4 p-3 mb-3 d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="fas fa-triangle-exclamation text-danger fs-5"></i>
+                        <span class="small fw-600 text-dark">This message is in your Trash bin. You can restore it to your inbox or permanently purge it.</span>
+                    </div>
+                </div>
+
+                <!-- Subject -->
+                <h3 class="fc-view-subject" id="trashSubject">{{ selected_msg.subject or '(No Subject)' }}</h3>
+
+                <!-- Sender Card -->
+                <div class="fc-view-sender-card">
+                    <div class="fc-view-avatar" id="trashAvatar" style="background: linear-gradient(135deg, #dc2626, #b91c1c);">
+                        {{ (selected_msg.sender_name or selected_msg.sender_email)[:2]|upper }}
+                    </div>
+                    <div class="fc-view-sender-details">
+                        <div class="fc-view-sender-top">
+                            <div class="fc-view-sender-name" id="trashSenderName">{{ selected_msg.sender_name or selected_msg.sender_email }}</div>
+                            <div class="fc-view-date" id="trashDate">
+                                <i class="far fa-clock me-1"></i> {{ selected_msg.created_at.strftime('%b %d, %Y at %H:%M') }}
+                            </div>
+                        </div>
+                        <div class="fc-view-emails-line">
+                            From: <code id="trashSenderEmail">{{ selected_msg.sender_email }}</code>
+                            <span class="mx-1 text-muted">·</span>
+                            To: <code id="trashRecipientEmail">{{ selected_msg.recipient_email }}</code>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- HTML Email Body -->
+                <div class="fc-view-body-card" id="trashBody">
+                    {{ selected_msg.body_html|safe }}
+                </div>
+            </div>
+        {% else %}
+            <!-- Empty State when nothing selected -->
+            <div class="fc-view-empty">
+                <i class="fas fa-trash-can"></i>
+                <h4 class="fw-800 text-dark mb-1">Select a deleted message</h4>
+                <p class="small text-muted" style="max-width: 320px;">
+                    Choose a deleted email from the list on the left to preview its contents and restore it.
+                </p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Embedded JSON Data for Instant Client-Side Switching -->
+<script id="trashDataJson" type="application/json">
+{
+  {% for m in messages %}
+  "{{ m.id }}": {
+    "id": {{ m.id }},
+    "subject": {{ (m.subject or '(No Subject)')|tojson }},
+    "sender_name": {{ (m.sender_name or m.sender_email)|tojson }},
+    "sender_email": {{ m.sender_email|tojson }},
+    "recipient_email": {{ m.recipient_email|tojson }},
+    "date_formatted": "{{ m.created_at.strftime('%b %d, %Y at %H:%M') }}",
+    "body_html": {{ m.body_html|tojson }},
+    "restore_url": "{{ url_for('restore_mail', id=m.id) }}",
+    "delete_url": "{{ url_for('delete_mail', id=m.id) }}"
+  }{% if not loop.last %},{% endif %}
+  {% endfor %}
+}
+</script>
+
+<script>
+let trashEmails = {};
+try {
+    const raw = document.getElementById('trashDataJson');
+    if (raw) trashEmails = JSON.parse(raw.textContent);
+} catch (e) {
+    console.error(e);
+}
+
+function selectTrashEmail(id) {
+    const data = trashEmails[id];
+    if (!data) return;
+
+    document.querySelectorAll('.fc-mail-item').forEach(el => el.classList.remove('selected'));
+    const card = document.getElementById('trash-card-' + id);
+    if (card) card.classList.add('selected');
+
+    if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', '/trash?msg_id=' + id);
+    }
+
+    const subj = document.getElementById('trashSubject');
+    const sName = document.getElementById('trashSenderName');
+    const av = document.getElementById('trashAvatar');
+    const date = document.getElementById('trashDate');
+    const sEmail = document.getElementById('trashSenderEmail');
+    const rEmail = document.getElementById('trashRecipientEmail');
+    const body = document.getElementById('trashBody');
+
+    if (subj) subj.innerText = data.subject;
+    if (sName) sName.innerText = data.sender_name;
+    if (av) av.innerText = (data.sender_name || 'TR').substring(0, 2).toUpperCase();
+    if (date) date.innerHTML = '<i class="far fa-clock me-1"></i> ' + data.date_formatted;
+    if (sEmail) sEmail.innerText = data.sender_email;
+    if (rEmail) rEmail.innerText = data.recipient_email;
+    if (body) body.innerHTML = data.body_html;
+
+    const resForm = document.getElementById('restoreForm');
+    const delForm = document.getElementById('permanentDeleteForm');
+    if (resForm) resForm.action = data.restore_url;
+    if (delForm) delForm.action = data.delete_url;
+
+    const scrollEl = document.getElementById('trashContentScroll');
+    if (scrollEl) scrollEl.scrollTop = 0;
+}
+
+// Live Search Filter
+const searchInput = document.getElementById('trashSearchInput');
+if (searchInput) {
+    searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        let visible = 0;
+        document.querySelectorAll('.fc-mail-item').forEach(card => {
+            const sender = card.getAttribute('data-sender') || '';
+            const subject = card.getAttribute('data-subject') || '';
+            const body = card.getAttribute('data-body') || '';
+            if (!q || sender.includes(q) || subject.includes(q) || body.includes(q)) {
+                card.classList.remove('d-none');
+                visible++;
+            } else {
+                card.classList.add('d-none');
+            }
+        });
+        const noRes = document.getElementById('noTrashResults');
+        if (noRes) {
+            if (visible === 0) noRes.classList.remove('d-none');
+            else noRes.classList.add('d-none');
+        }
+    });
+}
+</script>
+{% endblock %}

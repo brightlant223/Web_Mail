@@ -1,0 +1,484 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- ─── Page Header ─── -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+    <div>
+        <h1 class="fw-800 mb-1" style="font-size: 26px; letter-spacing: -0.5px; color: var(--text-900);">Overview</h1>
+        <p class="mb-0" style="font-size: 13.5px; color: var(--text-500);">A snapshot of how your workspace is doing.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span class="fc-badge blue d-none d-md-inline-flex" style="font-size: 11.5px; padding: 6px 14px;">
+            <i class="fas fa-circle-check" style="font-size: 10px;"></i> Get set up 4/5
+        </span>
+        <a href="{{ url_for('admin_domains') }}" class="btn-fc-ghost" style="font-size: 13px; padding: 7px 16px;">
+            <i class="fas fa-plus" style="font-size: 11px;"></i> Add Domain
+        </a>
+        <a href="{{ url_for('admin_users') }}" class="btn-fc-ghost" style="font-size: 13px; padding: 7px 16px;">
+            <i class="fas fa-user-plus" style="font-size: 11px;"></i> Create Mailbox
+        </a>
+        <a href="{{ url_for('bulk_mail') }}" class="btn-fc-primary" style="font-size: 13px; padding: 8px 18px;">
+            <i class="fas fa-paper-plane" style="font-size: 11px;"></i> Launch Campaign
+        </a>
+    </div>
+</div>
+
+{% if not smtp_configured %}
+<div class="alert mb-4 d-flex align-items-center justify-content-between gap-3 p-4"
+    style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 16px; border-left: 4px solid #f59e0b;">
+    <div class="d-flex align-items-center gap-3">
+        <i class="fas fa-triangle-exclamation" style="font-size: 20px; color: #d97706;"></i>
+        <div>
+            <strong style="color: var(--text-900); font-size: 14px;">SMTP Server Not Configured</strong>
+            <div style="font-size: 13px; color: var(--text-500); margin-top: 2px;">Mails dispatch in simulation mode. Connect SMTP server for real delivery.</div>
+        </div>
+    </div>
+    <a href="{{ url_for('admin_smtp') }}" class="btn-fc-primary flex-shrink-0" style="font-size: 12.5px; background: #d97706; box-shadow: 0 4px 12px rgba(217,119,6,0.3); white-space: nowrap;">
+        Setup SMTP
+    </a>
+</div>
+{% endif %}
+
+<!-- ─── Stat Cards Row (4 across) ─── -->
+<div class="row g-3 mb-4">
+    <!-- Active Mailboxes -->
+    <div class="col-6 col-xl-3">
+        <div class="fc-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="fc-icon blue"><i class="fas fa-comment-dots"></i></div>
+                <span class="fc-trend up"><i class="fas fa-arrow-up-right" style="font-size: 9px;"></i> +12%</span>
+            </div>
+            <div class="fc-stat-num">{{ users_count }}</div>
+            <div class="fc-stat-label">Active mailboxes today</div>
+        </div>
+    </div>
+
+    <!-- Custom Domains -->
+    <div class="col-6 col-xl-3">
+        <div class="fc-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="fc-icon cyan"><i class="fas fa-globe"></i></div>
+                <span class="fc-trend down"><i class="fas fa-arrow-down-right" style="font-size: 9px;"></i> -8%</span>
+            </div>
+            <div class="fc-stat-num">{{ domains_count }}</div>
+            <div class="fc-stat-label">Verified custom domains</div>
+        </div>
+    </div>
+
+    <!-- Deliverability Rate -->
+    <div class="col-6 col-xl-3">
+        <div class="fc-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="fc-icon emerald"><i class="fas fa-chart-line"></i></div>
+                <span class="fc-trend up"><i class="fas fa-arrow-up-right" style="font-size: 9px;"></i> +3%</span>
+            </div>
+            <div class="fc-stat-num">92%</div>
+            <div class="fc-stat-label">Email deliverability rate</div>
+        </div>
+    </div>
+
+    <!-- CSAT Score -->
+    <div class="col-6 col-xl-3">
+        <div class="fc-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="fc-icon amber"><i class="fas fa-face-smile"></i></div>
+                <span class="fc-trend flat"><i class="fas fa-minus" style="font-size: 9px;"></i> -0.1</span>
+            </div>
+            <div class="fc-stat-num">4.6/5</div>
+            <div class="fc-stat-label">Campaign CSAT score</div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Chart + Activity Feed ─── -->
+<div class="row g-3">
+
+    <!-- LEFT: Chart -->
+    <div class="col-lg-8">
+        <div class="fc-chart-box h-100 d-flex flex-column">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+                <div>
+                    <div style="font-size: 11px; font-weight: 700; color: var(--text-400); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Email volume</div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span id="chartTotalVolume" class="fw-800" style="font-size: 28px; letter-spacing: -0.5px; color: var(--text-900);">473</span>
+                        <span id="chartTrendBadge" class="fc-trend up"><i class="fas fa-arrow-up-right" style="font-size: 9px;"></i> 12% vs previous period</span>
+                    </div>
+                </div>
+                <div class="fc-period-tabs">
+                    <button class="fc-period-tab active" data-days="7" onclick="switchPeriodTab(7, this)">7D</button>
+                    <button class="fc-period-tab" data-days="14" onclick="switchPeriodTab(14, this)">14D</button>
+                    <button class="fc-period-tab" data-days="30" onclick="switchPeriodTab(30, this)">30D</button>
+                </div>
+            </div>
+
+            <!-- Chart Canvas -->
+            <div style="flex-grow: 1; min-height: 280px; position: relative;">
+                <canvas id="emailAnalyticsChart"></canvas>
+            </div>
+
+            <!-- Legend Footer -->
+            <div class="d-flex align-items-center justify-content-between mt-3 pt-3 flex-wrap gap-2" style="border-top: 1px solid var(--border); font-size: 11.5px; color: var(--text-400);">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="d-flex align-items-center gap-1">
+                        <span style="display:inline-block; width:16px; height:3px; background: var(--accent); border-radius: 3px;"></span>
+                        <span id="chartLegendPeriodLabel">Last 7 days</span>
+                    </span>
+                    <span class="d-flex align-items-center gap-1">
+                        <span style="display:inline-block; width:16px; height:2px; background: var(--border); border-radius: 3px; border-top: 2px dashed #cbd5e1;"></span>
+                        Previous period
+                    </span>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span>Peak: <strong id="chartPeakVal" style="color: var(--text-900);">96</strong></span>
+                    <span>Daily avg: <strong id="chartAvgVal" style="color: var(--text-900);">68</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT: Activity Feed -->
+    <div class="col-lg-4">
+        <div class="fc-activity-box h-100 d-flex flex-column">
+            <!-- Header -->
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fw-700" style="font-size: 15px; color: var(--text-900);">Recent activity</span>
+                    <span class="fc-badge blue" style="font-size: 10px; padding: 2px 8px;">{{ recent_logs|length }} items</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <a href="{{ url_for('admin_logs') }}" class="text-fc-blue" style="font-size: 11.5px; font-weight: 600; text-decoration: none;">Audit Logs</a>
+                    <span class="fc-badge green" style="font-size: 10px; padding: 2px 8px;">
+                        <span class="fc-pulse-dot" style="width:6px; height:6px;"></span> Live
+                    </span>
+                </div>
+            </div>
+
+            <!-- Scrollable Feed Items -->
+            <div class="fc-activity-scroll-list d-flex flex-column gap-1">
+                {% for log in recent_logs %}
+                    {% if log.log_type == 'auth' %}{% set av_bg = '#f97316' %}
+                    {% elif log.log_type == 'mail' %}{% set av_bg = '#10b981' %}
+                    {% elif log.log_type == 'domain' %}{% set av_bg = '#0284c7' %}
+                    {% elif log.log_type == 'user' %}{% set av_bg = '#8b5cf6' %}
+                    {% elif log.log_type == 'smtp' %}{% set av_bg = '#d97706' %}
+                    {% else %}{% set av_bg = '#2563eb' %}{% endif %}
+                    <div class="fc-activity-item d-flex align-items-center justify-content-between" style="cursor: pointer; min-width: 0;"
+                         onclick="openLogModal(this)"
+                         data-type="{{ log.log_type }}"
+                         data-message="{{ log.message|e }}"
+                         data-user="{{ log.user_email or 'system' }}"
+                         data-time="{{ log.created_at.strftime('%b %d, %Y %H:%M:%S') }}"
+                         title="Click to view details">
+                        <div class="d-flex align-items-center gap-2 min-w-0" style="flex: 1 1 0%; min-width: 0; overflow: hidden;">
+                            <div class="fc-avatar flex-shrink-0" style="background: {{ av_bg }};">
+                                {{ log.log_type[:2]|upper }}
+                            </div>
+                            <div class="min-w-0" style="flex: 1 1 0%; overflow: hidden;">
+                                <div class="fw-600 text-truncate" style="font-size: 12.5px; color: var(--text-900);">{{ log.message }}</div>
+                                <div class="text-truncate" style="font-size: 11px; color: var(--text-400);">
+                                    {{ log.user_email or 'system' }} · {{ log.created_at.strftime('%H:%M:%S') }} · <span style="color: var(--accent); font-weight: 600;">Inspect</span>
+                                </div>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right ms-2 flex-shrink-0" style="font-size: 10px; color: var(--text-400);"></i>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5" style="color: var(--text-400); font-size: 13px;">
+                        <i class="fas fa-inbox fs-4 d-block mb-2 opacity-30"></i>
+                        No recent activity yet.
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Footer Link -->
+            <div class="pt-3 mt-2 text-center" style="border-top: 1px solid var(--border);">
+                <a href="{{ url_for('admin_logs') }}" class="text-fc-blue fw-700" style="font-size: 12.5px; text-decoration: none;">
+                    View all activity logs &rarr;
+                </a>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ─── Activity Log Detail Modal ─── -->
+<div class="modal fade" id="activityDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; background: var(--surface);">
+            <div class="modal-header border-0 pb-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2.5">
+                    <div id="modalLogAvatar" class="fc-avatar" style="width: 38px; height: 38px; font-size: 14px; background: var(--accent);">
+                        EV
+                    </div>
+                    <div>
+                        <h6 class="fw-800 mb-0" style="font-size: 16px; color: var(--text-900);">Event Details</h6>
+                        <span id="modalLogTypeBadge" class="fc-badge blue" style="font-size: 10.5px; padding: 2px 8px;">SYSTEM</span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body px-4 py-3">
+                <div class="p-3 mb-3" style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px;">
+                    <div style="font-size: 11px; font-weight: 700; color: var(--text-400); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Log Message</div>
+                    <div id="modalLogMessage" class="fw-700" style="font-size: 14px; color: var(--text-900); word-break: break-word;">
+                        User logged in
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <div class="p-2.5 rounded-3" style="background: var(--surface-2); border: 1px solid var(--border);">
+                            <div style="font-size: 10.5px; color: var(--text-400); font-weight: 600;">ACTOR / EMAIL</div>
+                            <div id="modalLogUser" class="fw-600 text-truncate" style="font-size: 12.5px; color: var(--text-700);">admin@brightlant.com</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-2.5 rounded-3" style="background: var(--surface-2); border: 1px solid var(--border);">
+                            <div style="font-size: 10.5px; color: var(--text-400); font-weight: 600;">TIMESTAMP</div>
+                            <div id="modalLogTime" class="fw-600 text-truncate" style="font-size: 12.5px; color: var(--text-700);">2026-09-23</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-2.5 rounded-3" style="background: var(--surface-2); border: 1px solid var(--border);">
+                            <div style="font-size: 10.5px; color: var(--text-400); font-weight: 600;">SERVICE NODE</div>
+                            <div class="fw-600" style="font-size: 12.5px; color: var(--text-700);">Brightlant Webmail Engine</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-2.5 rounded-3" style="background: var(--surface-2); border: 1px solid var(--border);">
+                            <div style="font-size: 10.5px; color: var(--text-400); font-weight: 600;">STATUS</div>
+                            <div class="fw-600 text-success" style="font-size: 12.5px;"><i class="fas fa-circle-check me-1"></i> Verified Live</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0 pb-4 px-4 d-flex justify-content-between">
+                <button type="button" class="btn-fc-ghost" onclick="copyLogMessage()">
+                    <i class="fas fa-copy me-1"></i> Copy Message
+                </button>
+                <button type="button" class="btn-fc-primary" data-bs-dismiss="modal">
+                    Close Details
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let chartInstance = null;
+let currentPeriod = 7;
+let periodDataCache = {};
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadPeriodData(7);
+
+    new MutationObserver(() => chartInstance && renderChart(periodDataCache[currentPeriod]))
+        .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+});
+
+function switchPeriodTab(days, btn) {
+    document.querySelectorAll('.fc-period-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPeriod = days;
+
+    const legendLabel = document.getElementById('chartLegendPeriodLabel');
+    if (legendLabel) legendLabel.innerText = `Last ${days} days`;
+
+    loadPeriodData(days);
+}
+
+function loadPeriodData(days) {
+    fetch(`/api/stats?days=${days}`)
+        .then(r => r.json())
+        .then(d => {
+            periodDataCache[days] = d;
+            updateHeaderMetrics(d);
+            renderChart(d);
+        })
+        .catch(e => {
+            // Fallback generated data for the selected period
+            const fallback = generateFallbackData(days);
+            periodDataCache[days] = fallback;
+            updateHeaderMetrics(fallback);
+            renderChart(fallback);
+        });
+}
+
+function generateFallbackData(days) {
+    const labels = [];
+    const data = [];
+    const prev_data = [];
+    const today = new Date();
+
+    for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        const weekday = d.getDay();
+        const base = (weekday > 0 && weekday < 6) ? 75 : 28;
+        const val = base + Math.floor(Math.sin(i) * 20) + (i % 5) * 8;
+        data.push(val);
+        prev_data.push(Math.round(val * 0.76));
+    }
+
+    const total = data.reduce((a, b) => a + b, 0);
+    const peak = Math.max(...data);
+    const avg = Math.round(total / days);
+
+    return {
+        labels,
+        data,
+        prev_data,
+        total_volume: total,
+        peak_volume: peak,
+        daily_avg: avg
+    };
+}
+
+function updateHeaderMetrics(d) {
+    const volEl = document.getElementById('chartTotalVolume');
+    const peakEl = document.getElementById('chartPeakVal');
+    const avgEl = document.getElementById('chartAvgVal');
+
+    if (volEl && d.total_volume !== undefined) volEl.innerText = d.total_volume.toLocaleString();
+    if (peakEl && d.peak_volume !== undefined) peakEl.innerText = d.peak_volume;
+    if (avgEl && d.daily_avg !== undefined) avgEl.innerText = d.daily_avg;
+}
+
+function renderChart(d) {
+    const canvas = document.getElementById('emailAnalyticsChart');
+    if (!canvas || !d) return;
+    const ctx = canvas.getContext('2d');
+    if (chartInstance) chartInstance.destroy();
+
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const labels = d.labels || [];
+    const data = d.data || [];
+    const prev = d.prev_data || data.map(v => Math.round(v * 0.75));
+
+    const grad = ctx.createLinearGradient(0, 0, 0, 280);
+    grad.addColorStop(0, dark ? 'rgba(37,99,235,0.35)' : 'rgba(37,99,235,0.18)');
+    grad.addColorStop(0.75, 'rgba(37,99,235,0.02)');
+    grad.addColorStop(1, 'rgba(37,99,235,0)');
+
+    const gridColor = dark ? 'rgba(255,255,255,0.05)' : 'rgba(226,232,240,0.7)';
+    const labelColor = dark ? '#94a3b8' : '#64748b';
+
+    chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: `Last ${currentPeriod} days`,
+                    data,
+                    borderColor: '#2563eb',
+                    backgroundColor: grad,
+                    borderWidth: 3,
+                    tension: 0.38,
+                    fill: true,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#2563eb',
+                    pointBorderWidth: 2.5,
+                    pointRadius: currentPeriod > 14 ? 3 : 5,
+                    pointHoverRadius: 7
+                },
+                {
+                    label: 'Previous period',
+                    data: prev,
+                    borderColor: dark ? '#334155' : '#cbd5e1',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    tension: 0.38,
+                    fill: false,
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            hover: {
+                mode: 'index',
+                intersect: false
+            },
+            animation: { duration: 650, easing: 'easeOutQuart' },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: dark ? '#1e293b' : '#0f172a',
+                    titleColor: '#fff', bodyColor: '#fff',
+                    padding: 10, cornerRadius: 10, displayColors: true,
+                    titleFont: { family: 'Inter', size: 12, weight: '700' },
+                    bodyFont:  { family: 'Inter', size: 13, weight: '600' }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        color: labelColor,
+                        font: { family: 'Inter', size: currentPeriod > 14 ? 10.5 : 12, weight: '600' },
+                        maxTicksLimit: currentPeriod > 14 ? 10 : 7,
+                        padding: 8
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: gridColor, lineWidth: 1 },
+                    ticks: { color: labelColor, font: { family: 'Inter', size: 11.5, weight: '600' }, padding: 10 }
+                }
+            }
+        }
+    });
+}
+
+function openLogModal(el) {
+    const type = el.getAttribute('data-type') || 'event';
+    const msg = el.getAttribute('data-message') || '';
+    const user = el.getAttribute('data-user') || 'system';
+    const time = el.getAttribute('data-time') || '';
+
+    const modalLogMsg = document.getElementById('modalLogMessage');
+    const modalLogUser = document.getElementById('modalLogUser');
+    const modalLogTime = document.getElementById('modalLogTime');
+    const modalLogTypeBadge = document.getElementById('modalLogTypeBadge');
+    const modalLogAvatar = document.getElementById('modalLogAvatar');
+
+    if (modalLogMsg) modalLogMsg.innerText = msg;
+    if (modalLogUser) modalLogUser.innerText = user;
+    if (modalLogTime) modalLogTime.innerText = time;
+    if (modalLogTypeBadge) modalLogTypeBadge.innerText = type.toUpperCase();
+    if (modalLogAvatar) modalLogAvatar.innerText = type.substring(0, 2).toUpperCase();
+
+    const colors = {
+        'auth': '#f97316',
+        'mail': '#10b981',
+        'domain': '#0284c7',
+        'user': '#8b5cf6',
+        'smtp': '#d97706'
+    };
+    if (modalLogAvatar) modalLogAvatar.style.background = colors[type] || 'var(--accent)';
+
+    const modal = new bootstrap.Modal(document.getElementById('activityDetailModal'));
+    modal.show();
+}
+
+function copyLogMessage() {
+    const msg = document.getElementById('modalLogMessage')?.innerText || '';
+    navigator.clipboard.writeText(msg).then(() => {
+        alert('Log details copied to clipboard!');
+    });
+}
+</script>
+{% endblock %}
