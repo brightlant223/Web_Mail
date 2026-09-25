@@ -37,7 +37,7 @@ def generate_ai_email(prompt, tone='professional', sender_name='ProMail Team'):
     
     # Format as HTML paragraph
     paragraphs = content.split('\n\n')
-    html_paragraphs = "".join([f"<p>{p.replace('\n', '<br>')}</p>" for p in paragraphs])
+    html_paragraphs = "".join(["<p>{}</p>".format(p.replace('\n', '<br>')) for p in paragraphs])
     return html_paragraphs
 
 def generate_ai_subject(prompt):
