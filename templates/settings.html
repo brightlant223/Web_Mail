@@ -108,7 +108,7 @@
             </div>
             <div class="set-row">
                 <div class="ic"><i class="fas fa-desktop"></i></div>
-                <div class="flex-grow-1"><h6>Desktop notifications</h6><p>Native browser pop-ups even when this tab is in the background. <span id="setPermState" class="fw-700"></span></p></div>
+                <div class="flex-grow-1"><h6>Push notifications</h6><p>Get alerts on this device — phone or desktop — even when the app is closed. <span id="setPermState" class="fw-700"></span></p></div>
                 <div class="d-flex align-items-center gap-2">
                     <button type="button" id="setPermBtn" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-700 d-none">Enable</button>
                     <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="setDesktop" style="width:2.6em;height:1.4em;"></div>
@@ -255,11 +255,19 @@
     refreshPerm();
     desktop.addEventListener('change', () => {
         saveNotifPrefs({ desktop: desktop.checked });
-        if (desktop.checked && 'Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission().then(refreshPerm);
+        if (desktop.checked) {
+            // Grant permission (if needed) and register this device for push so
+            // alerts reach the phone even when the app is closed.
+            if (typeof registerWebPush === 'function') registerWebPush(true).then(refreshPerm);
+            else if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().then(refreshPerm);
+        } else {
+            if (typeof disableWebPush === 'function') disableWebPush();
         }
     });
-    permBtn.addEventListener('click', () => { if ('Notification' in window) Notification.requestPermission().then(refreshPerm); });
+    permBtn.addEventListener('click', () => {
+        if (typeof registerWebPush === 'function') registerWebPush(true).then(refreshPerm);
+        else if ('Notification' in window) Notification.requestPermission().then(refreshPerm);
+    });
 
     // Theme
     const themeBtns = document.querySelectorAll('[data-theme-val]');

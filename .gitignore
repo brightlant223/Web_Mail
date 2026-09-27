@@ -16,6 +16,7 @@ env/
 *.env
 config_local.py
 .secret_key
+.vapid_key.pem
 
 # Database (contains SMTP credentials & user data — never commit)
 instance/

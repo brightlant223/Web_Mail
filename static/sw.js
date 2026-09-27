@@ -40,3 +40,32 @@ self.addEventListener('fetch', event => {
     fetch(event.request).catch(() => caches.match(event.request))
   );
 });
+
+// --- Web Push: show a notification even when the app/tab is closed ---
+self.addEventListener('push', event => {
+  let payload = {};
+  try { payload = event.data ? event.data.json() : {}; } catch (e) { payload = {}; }
+  const title = payload.title || 'Brightlant Webmail';
+  const options = {
+    body: payload.body || 'You have a new alert.',
+    icon: '/static/images/icon-192.png',
+    badge: '/static/images/icon-192.png',
+    tag: payload.tag || 'brightlant-alert',
+    data: { url: payload.url || '/notifications' },
+    vibrate: [120, 60, 120]
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/notifications';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const client of list) {
+        if ('focus' in client) { client.navigate(target); return client.focus(); }
+      }
+      if (clients.openWindow) return clients.openWindow(target);
+    })
+  );
+});

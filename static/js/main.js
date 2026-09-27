@@ -229,6 +229,68 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// --- WEB PUSH: subscribe this device so alerts reach the phone even when the app is closed ---
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+}
+
+async function registerWebPush(askPermission) {
+    try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+        let perm = Notification.permission;
+        if (perm === 'default' && askPermission) perm = await Notification.requestPermission();
+        if (perm !== 'granted') return false;
+
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+            const res = await fetch('/api/push/public-key');
+            const { key } = await res.json();
+            if (!key) return false;
+            sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(key)
+            });
+        }
+        await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sub)
+        });
+        return true;
+    } catch (e) {
+        console.log('Web push registration failed:', e);
+        return false;
+    }
+}
+// __WEBPUSH_CLIENT_2__
+async function disableWebPush() {
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+            await fetch('/api/push/unsubscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ endpoint: sub.endpoint })
+            });
+            await sub.unsubscribe();
+        }
+    } catch (e) { /* ignore */ }
+}
+
+// Auto-sync this device's subscription on load if the user already granted permission.
+document.addEventListener('DOMContentLoaded', () => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        registerWebPush(false);
+    }
+});
+
 // --- AUDIO NOTIFICATION SYNTHESIZER (Web Audio API) — 5 device-style tones ---
 const NOTIF_DEFAULTS = { sound: 'shimmer', soundOn: true, volume: 0.6, desktop: true, toast: true };
 

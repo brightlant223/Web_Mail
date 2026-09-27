@@ -175,3 +175,15 @@ class SystemLog(db.Model):
     user_email = db.Column(db.String(150), nullable=True)
     ip_address = db.Column(db.String(50), default='127.0.0.1')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class PushSubscription(db.Model):
+    """A Web Push endpoint a user allowed on one of their devices (phone/PC).
+    Used to deliver notifications even when the app/tab is closed."""
+    __tablename__ = 'push_subscriptions'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    endpoint = db.Column(db.Text, unique=True, nullable=False)
+    p256dh = db.Column(db.String(255), nullable=False)
+    auth = db.Column(db.String(255), nullable=False)
+    user_agent = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

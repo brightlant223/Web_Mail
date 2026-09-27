@@ -1,8 +1,10 @@
 import os
 import io
 import csv
+import json
 import socket
 import secrets
+import threading
 import pandas as pd
 from datetime import datetime, date, timedelta
 from werkzeug.utils import secure_filename
@@ -10,7 +12,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify, Response, send_from_directory
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 
-from models import db, User, Domain, Campaign, EmailLog, Contact, Template, SMTPSetting, SystemLog, Message, UserProfile, ApiKey, Attachment, ResearchChecklist
+from models import db, User, Domain, Campaign, EmailLog, Contact, Template, SMTPSetting, SystemLog, Message, UserProfile, ApiKey, Attachment, ResearchChecklist, PushSubscription
 from mailer import start_campaign_async, get_smtp_config, send_real_single_email
 from ai_copilot import generate_ai_email, generate_ai_subject, improve_ai_text
 from header_parser import parse_email_header, SAMPLE_NEXUS_HEADER
@@ -264,8 +266,9 @@ def _alert_throttled(key, cooldown_seconds=600):
     _ADMIN_ALERT_COOLDOWN[key] = now
     return False
 
-def notify_admins_security(subject, body_html):
-    """Deliver a security notification into every admin's inbox."""
+def notify_admins_security(subject, body_html, push_body="Tap to review this security alert."):
+    """Deliver a security notification into every admin's inbox AND push it to
+    their registered devices (phone/desktop) via Web Push."""
     try:
         admins = User.query.filter_by(role='admin').all()
         for adm in admins:
@@ -282,6 +285,12 @@ def notify_admins_security(subject, body_html):
         db.session.commit()
     except Exception:
         db.session.rollback()
+        return
+    # Also push to admins' phones/desktops, even if the app is closed.
+    try:
+        push_to_users([a.id for a in admins], subject, push_body, url='/notifications')
+    except Exception:
+        pass
 
 def _access_alert_body(headline, who_line, ip, origin_label, ua, success=True):
     color = '#2563eb' if success else '#dc2626'
@@ -300,6 +309,79 @@ def _access_alert_body(headline, who_line, ip, origin_label, ua, success=True):
         'change the admin password now from Admin &rarr; Password &amp; Security.</p>'
         '</div>'
     )
+
+# ── Web Push (VAPID) — deliver alerts to phones/desktops even when closed ──
+VAPID_SUBJECT = os.environ.get('VAPID_SUBJECT', 'mailto:admin@brightlant.com')
+_VAPID_PEM_PATH = os.path.join(app.root_path, '.vapid_key.pem')
+
+def _load_or_create_vapid():
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives import serialization
+    import base64
+    try:
+        if os.path.exists(_VAPID_PEM_PATH):
+            with open(_VAPID_PEM_PATH, 'rb') as f:
+                priv = serialization.load_pem_private_key(f.read(), password=None)
+        else:
+            priv = ec.generate_private_key(ec.SECP256R1())
+            with open(_VAPID_PEM_PATH, 'wb') as f:
+                f.write(priv.private_bytes(
+                    serialization.Encoding.PEM,
+                    serialization.PrivateFormat.PKCS8,
+                    serialization.NoEncryption()))
+        pub_bytes = priv.public_key().public_bytes(
+            serialization.Encoding.X962,
+            serialization.PublicFormat.UncompressedPoint)
+        return base64.urlsafe_b64encode(pub_bytes).rstrip(b'=').decode('ascii')
+    except Exception as e:
+        print('VAPID init error:', e)
+        return None
+
+VAPID_PUBLIC_KEY = _load_or_create_vapid()
+# __WEBPUSH_PART2__
+
+def _send_push_async(subs, payload):
+    """Fire web-push notifications on a background thread (never block a request)."""
+    if not subs or not VAPID_PUBLIC_KEY:
+        return
+    data = json.dumps(payload)
+    def worker():
+        from pywebpush import webpush, WebPushException
+        stale = []
+        for s in subs:
+            try:
+                webpush(
+                    subscription_info={'endpoint': s['endpoint'],
+                                       'keys': {'p256dh': s['p256dh'], 'auth': s['auth']}},
+                    data=data,
+                    vapid_private_key=_VAPID_PEM_PATH,
+                    vapid_claims={'sub': VAPID_SUBJECT},
+                    timeout=10)
+            except WebPushException as e:
+                code = getattr(getattr(e, 'response', None), 'status_code', None)
+                if code in (404, 410):
+                    stale.append(s['id'])
+            except Exception:
+                pass
+        if stale:
+            try:
+                with app.app_context():
+                    PushSubscription.query.filter(
+                        PushSubscription.id.in_(stale)).delete(synchronize_session=False)
+                    db.session.commit()
+            except Exception:
+                pass
+    threading.Thread(target=worker, daemon=True).start()
+
+def push_to_users(user_ids, title, body, url='/notifications'):
+    """Collect the given users' push subscriptions and send them a notification."""
+    try:
+        subs = PushSubscription.query.filter(PushSubscription.user_id.in_(user_ids)).all()
+        payload_subs = [{'id': s.id, 'endpoint': s.endpoint, 'p256dh': s.p256dh, 'auth': s.auth}
+                        for s in subs]
+        _send_push_async(payload_subs, {'title': title, 'body': body, 'url': url})
+    except Exception:
+        pass
 
 @app.before_request
 def _alert_on_admin_area_access():
@@ -2214,6 +2296,45 @@ def api_notifications_recent():
         'created_at': m.created_at.strftime('%b %d, %H:%M')
     } for m in messages]
     return jsonify({'status': 'success', 'messages': data})
+
+# --- WEB PUSH SUBSCRIPTION ROUTES (phone/desktop notifications) ---
+@app.route('/api/push/public-key')
+@login_required
+def api_push_public_key():
+    return jsonify({'key': VAPID_PUBLIC_KEY or ''})
+
+@app.route('/api/push/subscribe', methods=['POST'])
+@login_required
+def api_push_subscribe():
+    data = request.get_json(silent=True) or {}
+    endpoint = data.get('endpoint')
+    keys = data.get('keys') or {}
+    p256dh = keys.get('p256dh')
+    auth = keys.get('auth')
+    if not (endpoint and p256dh and auth):
+        return jsonify({'status': 'error', 'message': 'Invalid subscription'}), 400
+    sub = PushSubscription.query.filter_by(endpoint=endpoint).first()
+    if sub:
+        sub.user_id = current_user.id
+        sub.p256dh = p256dh
+        sub.auth = auth
+        sub.user_agent = (request.headers.get('User-Agent', '') or '')[:255]
+    else:
+        db.session.add(PushSubscription(
+            user_id=current_user.id, endpoint=endpoint, p256dh=p256dh, auth=auth,
+            user_agent=(request.headers.get('User-Agent', '') or '')[:255]))
+    db.session.commit()
+    return jsonify({'status': 'success'})
+
+@app.route('/api/push/unsubscribe', methods=['POST'])
+@login_required
+def api_push_unsubscribe():
+    data = request.get_json(silent=True) or {}
+    endpoint = data.get('endpoint')
+    if endpoint:
+        PushSubscription.query.filter_by(endpoint=endpoint, user_id=current_user.id).delete()
+        db.session.commit()
+    return jsonify({'status': 'success'})
 
 @app.route('/admin/smtp/test-real', methods=['POST'])
 @login_required
