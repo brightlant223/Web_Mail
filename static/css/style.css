@@ -2369,3 +2369,73 @@ html, body {
     .main-container { padding: 12px 10px; }
 }
 
+/* ════════════════════════════════════════
+   RESPONSIVE — Webmail master/detail on phones
+   On desktop: list + reading pane side by side.
+   On ≤768px: show the list full-width; tapping a
+   mail swaps to the reading pane full-screen with a
+   "Back to list" bar (wired in main.js).
+   ════════════════════════════════════════ */
+.fc-mobile-back { display: none; }
+
+@media (max-width: 768px) {
+    .fc-webmail-container {
+        flex-direction: column;
+        height: calc(100vh - 88px);
+        min-height: 0;
+    }
+    .fc-webmail-list-pane {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        height: 100%;
+    }
+    /* Reading pane hidden until a mail is opened */
+    .fc-webmail-view-pane { display: none; }
+    .fc-webmail-container.show-detail .fc-webmail-list-pane { display: none; }
+    .fc-webmail-container.show-detail .fc-webmail-view-pane {
+        display: flex;
+        height: 100%;
+    }
+
+    /* Injected back bar */
+    .fc-mobile-back {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 15px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--accent);
+        font-weight: 700;
+        font-size: 14px;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+    /* Toolbars/headers wrap instead of overflowing */
+    .fc-webmail-view-toolbar {
+        height: auto;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 14px;
+    }
+    .fc-webmail-content-scroll { padding: 16px 14px !important; }
+    .fc-view-subject { font-size: 20px !important; }
+
+    /* Reading-pane email HTML shouldn't force horizontal scroll */
+    .fc-view-body-card { overflow-x: auto; }
+    .fc-view-body-card img { max-width: 100%; height: auto; }
+
+    /* Tighten the top navbar on phones */
+    .top-navbar { gap: 4px; }
+    .top-navbar .btn-icon { width: 33px; height: 33px; font-size: 14px; }
+}
+
+/* Never leave a stale back bar visible on desktop */
+@media (min-width: 769px) {
+    .fc-mobile-back { display: none !important; }
+}
+

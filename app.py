@@ -16,11 +16,42 @@ from ai_copilot import generate_ai_email, generate_ai_subject, improve_ai_text
 from header_parser import parse_email_header, SAMPLE_NEXUS_HEADER
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'promail-super-secret-key-2026'
+
+
+def _load_or_create_secret_key():
+    """Use SECRET_KEY from the environment; otherwise persist a strong random
+    key to a local file so sessions survive restarts without a hardcoded secret."""
+    env_key = os.environ.get('SECRET_KEY')
+    if env_key:
+        return env_key
+    key_path = os.path.join(app.root_path, '.secret_key')
+    try:
+        if os.path.exists(key_path):
+            with open(key_path, 'r') as f:
+                existing = f.read().strip()
+            if existing:
+                return existing
+        generated = secrets.token_hex(32)
+        with open(key_path, 'w') as f:
+            f.write(generated)
+        return generated
+    except Exception:
+        # Last-resort ephemeral key (sessions reset on restart, but never hardcoded)
+        return secrets.token_hex(32)
+
+
+app.config['SECRET_KEY'] = _load_or_create_secret_key()
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///email_system.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'uploads')
 app.config['AVATAR_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads', 'avatars')
+
+# Session cookie hardening
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+# Only send cookies over HTTPS when explicitly enabled (keeps local http dev working)
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', '0') == '1'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=12)
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['AVATAR_FOLDER'], exist_ok=True)
@@ -75,54 +106,28 @@ with app.app_context():
         db.session.add(brightlant_domain)
         db.session.commit()
 
-    # Default Admin
+    # Bootstrap Admin (the ONLY seeded account). Every other mailbox must be
+    # provisioned by this admin from Admin -> Users. Credentials are read from
+    # the environment so they are not hardcoded; defaults exist only for first-run
+    # convenience and should be changed immediately from Admin -> Password & Security.
+    admin_email = os.environ.get('ADMIN_EMAIL', 'admin@brightlant.com').strip().lower()
+    admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
     admin_user = User.query.filter_by(role='admin').first()
     if not admin_user:
         admin_user = User(
             name="Brightlant Administrator",
-            email="admin@brightlant.com",
-            password=generate_password_hash("admin123"),
+            email=admin_email,
+            password=generate_password_hash(admin_password),
             role="admin",
             daily_limit=100000,
             domain_id=brightlant_domain.id
         )
         db.session.add(admin_user)
         db.session.commit()
-        print("[+] Default Admin Created: admin@brightlant.com | Pass: admin123")
-
-    # Default Employee Account (for 1-click Quick Login & User Testing)
-    emp_user = User.query.filter_by(email="employee@brightlant.com").first()
-    if not emp_user:
-        emp_user = User(
-            name="Rahul Sharma (Employee)",
-            email="employee@brightlant.com",
-            password=generate_password_hash("user123"),
-            role="user",
-            daily_limit=500,
-            domain_id=brightlant_domain.id
-        )
-        db.session.add(emp_user)
-        db.session.commit()
-        print("[+] Default Employee Created: employee@brightlant.com | Pass: user123")
-
-    # Additional Demo Employees for Webmail Inter-office Mail Testing
-    demo_employees = [
-        ("Neha Verma", "neha@brightlant.com", "user123"),
-        ("Vikram Singh", "vikram@brightlant.com", "user123"),
-        ("Ananya Patel", "ananya@brightlant.com", "user123")
-    ]
-    for emp_name, emp_email, emp_pass in demo_employees:
-        if not User.query.filter_by(email=emp_email).first():
-            usr = User(
-                name=emp_name,
-                email=emp_email,
-                password=generate_password_hash(emp_pass),
-                role="user",
-                daily_limit=500,
-                domain_id=brightlant_domain.id
-            )
-            db.session.add(usr)
-    db.session.commit()
+        print(f"[+] Bootstrap admin created: {admin_email}")
+        if not os.environ.get('ADMIN_PASSWORD'):
+            print("[!] Using the default admin password. Change it now from Admin -> Password & Security,")
+            print("    or set ADMIN_EMAIL / ADMIN_PASSWORD env vars before first run.")
 
     # Default SMTP Setting
     if not SMTPSetting.query.first():
@@ -229,17 +234,6 @@ def add_security_headers(response):
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     return response
 
-# --- PUBLIC WEBSITE / LANDING PAGE ---
-@app.route('/welcome')
-def landing_page():
-    # Public marketing / info page: product details, how to log in, PWA install.
-    # Logged-in users are sent straight to their workspace.
-    if current_user.is_authenticated:
-        if current_user.role == 'admin':
-            return redirect(url_for('admin_dashboard'))
-        return redirect(url_for('webmail_inbox'))
-    return render_template('landing.html')
-
 # --- PWA MANIFEST & SERVICE WORKER ROUTES ---
 @app.route('/manifest.json')
 def serve_manifest():
@@ -251,15 +245,13 @@ def serve_sw():
     response.headers['Content-Type'] = 'application/javascript'
     return response
 
-# --- AUTH & QUICK DEMO USER SWITCHER ---
+# --- AUTH ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
         if current_user.role == 'admin':
             return redirect(url_for('admin_dashboard'))
         return redirect(url_for('webmail_inbox'))
-        
-    nexus_users = User.query.filter_by(role='user').order_by(User.id.asc()).limit(30).all()
 
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
@@ -272,14 +264,14 @@ def login():
         if not allowed:
             flash(rate_msg, "danger")
             log_system_event('auth', f"⚠️ Rate limit blocked login attempt for {email} from IP {client_ip}", email)
-            return render_template('auth/login.html', nexus_users=nexus_users)
+            return render_template('auth/login.html')
 
         user = User.query.filter_by(email=email).first()
-        
+
         if user and check_password_hash(user.password, password):
             if user.status == 'suspended':
                 flash('Your account has been suspended by the administrator.', 'danger')
-                return render_template('auth/login.html', nexus_users=nexus_users)
+                return render_template('auth/login.html')
 
             clear_failed_login_attempts(rate_key)
             remember_me = True if request.form.get('remember') or request.form.get('rememberMe') else False
@@ -289,58 +281,19 @@ def login():
             if user.role == 'admin':
                 return redirect(url_for('admin_dashboard'))
             return redirect(url_for('webmail_inbox'))
-            
+
         record_failed_login_attempt(rate_key)
         log_system_event('auth', f"⚠️ Failed login attempt for email: {email} from IP {client_ip}", email)
-        flash('Invalid Email or Password! Try default pass: user123 or admin123', 'danger')
-        
-    return render_template('auth/login.html', nexus_users=nexus_users)
+        flash('Invalid email or password.', 'danger')
 
-@app.route('/switch-user/<int:user_id>')
-def switch_user(user_id):
-    target_user = User.query.get_or_404(user_id)
-    login_user(target_user)
-    log_system_event('auth', f"Switched to employee account: {target_user.email}", target_user.email)
-    flash(f"Logged in as {target_user.name} ({target_user.email})", "success")
-    if target_user.role == 'admin':
-        return redirect(url_for('admin_dashboard'))
-    return redirect(url_for('webmail_inbox'))
+    return render_template('auth/login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    domains = Domain.query.filter_by(is_active=True).all()
-    if request.method == 'POST':
-        name = request.form.get('name')
-        username = request.form.get('username', '').lower().strip()
-        domain_id = request.form.get('domain_id')
-        password = request.form.get('password')
-
-        domain = Domain.query.get(domain_id)
-        if not domain:
-            flash("Please select a valid domain!", "danger")
-            return render_template('auth/register.html', domains=domains)
-
-        full_email = f"{username}@{domain.domain_name}"
-        if User.query.filter_by(email=full_email).first():
-            flash(f"Email {full_email} is already taken! Try another username.", "warning")
-            return render_template('auth/register.html', domains=domains)
-
-        new_user = User(
-            name=name,
-            email=full_email,
-            password=generate_password_hash(password),
-            role='user',
-            domain_id=domain.id,
-            daily_limit=500
-        )
-        db.session.add(new_user)
-        db.session.commit()
-        
-        log_system_event('auth', f"New user registered: {full_email}")
-        flash(f"Mailbox {full_email} registered successfully! You can now log in.", "success")
-        return redirect(url_for('login'))
-
-    return render_template('auth/register.html', domains=domains)
+    # Public self-registration is disabled. Only the administrator can provision
+    # mailboxes (Admin -> Users). This closes off unauthorized account creation.
+    flash("Self sign-up is disabled. Please contact your administrator to get a mailbox.", "info")
+    return redirect(url_for('login'))
 
 @app.route('/logout')
 @login_required
@@ -1341,61 +1294,166 @@ def api_ai_generate():
 @app.route('/analytics')
 @login_required
 def analytics():
-    campaigns = Campaign.query.filter_by(user_id=current_user.id).all() if current_user.role != 'admin' else Campaign.query.all()
+    is_admin = current_user.role == 'admin'
+    now = datetime.utcnow()
+
+    # ---- Bulk campaigns ----
+    campaigns = Campaign.query.all() if is_admin else Campaign.query.filter_by(user_id=current_user.id).all()
     total_campaigns = len(campaigns)
-    total_sent = sum(c.sent_count for c in campaigns)
+    campaign_sent = sum(c.sent_count for c in campaigns)
     total_failed = sum(c.failed_count for c in campaigns)
-
     all_campaign_ids = [c.id for c in campaigns]
-    opened_count = EmailLog.query.filter(EmailLog.campaign_id.in_(all_campaign_ids), EmailLog.status == 'opened').count() if all_campaign_ids else 0
-    
-    # Real webmail stats
-    webmail_sent_count = Message.query.filter_by(sender_email=current_user.email).count()
-    webmail_inbox_count = Message.query.filter_by(recipient_email=current_user.email, folder='inbox').count()
-    
-    total_dispatches = total_sent + webmail_sent_count
-    open_rate = round((opened_count / total_sent * 100), 1) if total_sent > 0 else 44.2
 
-    # Detailed dispatch records combining campaigns and sent messages
+    # ---- Direct webmail sends ----
+    msg_q = Message.query.filter_by(folder='sent')
+    if not is_admin:
+        msg_q = msg_q.filter_by(sender_email=current_user.email)
+    sent_messages = msg_q.all()
+    webmail_sent_count = len(sent_messages)
+
+    # ---- Opened tracking events (real) ----
+    opened_logs = (EmailLog.query
+                   .filter(EmailLog.campaign_id.in_(all_campaign_ids), EmailLog.status == 'opened').all()
+                   if all_campaign_ids else [])
+    all_logs = (EmailLog.query.filter(EmailLog.campaign_id.in_(all_campaign_ids)).all()
+                if all_campaign_ids else [])
+    opened_count = len(opened_logs)
+
+    # ---- Core KPIs (all derived from real rows) ----
+    total_dispatched = campaign_sent + webmail_sent_count
+    delivered = total_dispatched - total_failed
+    delivery_rate = round(delivered / total_dispatched * 100, 1) if total_dispatched else 0.0
+    bounce_rate = round(total_failed / total_dispatched * 100, 1) if total_dispatched else 0.0
+    open_rate = round(opened_count / campaign_sent * 100, 1) if campaign_sent else 0.0
+    sender_score = delivery_rate  # reputation proxy from real delivery performance
+
+    # ---- Dispatch events with real timestamps (for time-series) ----
+    events = [{'dt': c.created_at, 'sent': c.sent_count, 'failed': c.failed_count} for c in campaigns]
+    events += [{'dt': m.created_at, 'sent': 1, 'failed': 0} for m in sent_messages]
+
+    def count_dispatched(d_start, d_end):
+        return sum(ev['sent'] for ev in events if ev['dt'] and d_start <= ev['dt'] < d_end)
+
+    # Real growth: last 30 days vs the 30 days before that
+    last30 = count_dispatched(now - timedelta(days=30), now)
+    prev30 = count_dispatched(now - timedelta(days=60), now - timedelta(days=30))
+    dispatch_delta = round((last30 - prev30) / prev30 * 100, 1) if prev30 else (100.0 if last30 else 0.0)
+
+    # ---- Daily time-series per period (7/14/30/90) ----
+    def daily_series(days):
+        start_date = (now - timedelta(days=days - 1)).date()
+        idx = {start_date + timedelta(days=i): i for i in range(days)}
+        labels = [(start_date + timedelta(days=i)).strftime('%b %d') for i in range(days)]
+        disp, opn, bnc = [0] * days, [0] * days, [0] * days
+        for ev in events:
+            if ev['dt'] and ev['dt'].date() in idx:
+                i = idx[ev['dt'].date()]
+                disp[i] += ev['sent']
+                bnc[i] += ev['failed']
+        for lg in opened_logs:
+            t = lg.opened_at or lg.sent_at
+            if t and t.date() in idx:
+                opn[idx[t.date()]] += 1
+        tot = sum(disp)
+        d_rate = round((tot - sum(bnc)) / tot * 100, 1) if tot else 0.0
+        o_rate = round(sum(opn) / tot * 100, 1) if tot else 0.0
+        return {
+            'labels': labels, 'dispatched': disp, 'opened': opn, 'bounced': bnc,
+            'total': f"{tot:,}", 'rate': f"{d_rate}%", 'openRate': f"{o_rate}%",
+            'openedCount': f"{sum(opn):,} Opens",
+            'dateRange': f"Last {days} Days ({labels[0]} - {labels[-1]})" if labels else f"Last {days} Days"
+        }
+
+    chart_data = {'7': daily_series(7), '14': daily_series(14),
+                  '30': daily_series(30), '90': daily_series(90)}
+
+    # ---- Provider placement from real recipient domains ----
+    def provider_of(email):
+        dom = (email or '').split('@')[-1].lower()
+        if dom in ('gmail.com', 'googlemail.com'):
+            return 'Google / Gmail'
+        if dom in ('outlook.com', 'hotmail.com', 'live.com', 'msn.com') or 'microsoft' in dom or dom.endswith('office365.com'):
+            return 'Microsoft 365'
+        if dom in ('icloud.com', 'me.com', 'mac.com'):
+            return 'Apple / iCloud'
+        return 'Corporate MX'
+
+    prov_keys = ['Google / Gmail', 'Microsoft 365', 'Apple / iCloud', 'Corporate MX']
+    provider_counts = {k: 0 for k in prov_keys}
+    for m in sent_messages:
+        provider_counts[provider_of(m.recipient_email)] += 1
+    for lg in all_logs:
+        provider_counts[provider_of(lg.recipient_email)] += 1
+    prov_total = sum(provider_counts.values())
+    provider_data = [round(provider_counts[k] / prov_total * 100, 1) if prov_total else 0 for k in prov_keys]
+
+    # ---- Hourly engagement distribution (real send/open hours) ----
+    disp_hours = list(range(8, 21))  # 8 AM .. 8 PM
+
+    def hour_label(h):
+        ap = 'AM' if h < 12 else 'PM'
+        hh = h if 1 <= h <= 12 else (h - 12 if h > 12 else 12)
+        return f"{hh} {ap}"
+
+    hour_counts = [0] * 24
+    for m in sent_messages:
+        if m.created_at:
+            hour_counts[m.created_at.hour] += 1
+    for lg in all_logs:
+        t = lg.opened_at or lg.sent_at
+        if t:
+            hour_counts[t.hour] += 1
+    hourly_labels = [hour_label(h) for h in disp_hours]
+    hourly_data = [hour_counts[h] for h in disp_hours]
+    peak_hour = disp_hours[hourly_data.index(max(hourly_data))] if any(hourly_data) else 14
+    peak_label = hour_label(peak_hour)
+
+    # ---- Domain security / deliverability health (from real config) ----
+    domain = Domain.query.first()
+    smtp = SMTPSetting.query.filter_by(is_active=True).first() or SMTPSetting.query.first()
+    health = {
+        'spf': (domain.spf_record if domain and domain.spf_record else '—'),
+        'spf_ok': bool(domain and domain.spf_record and domain.is_verified),
+        'dkim_ok': bool(domain and domain.dkim_record),
+        'dmarc': (domain.dmarc_record if domain and domain.dmarc_record else '—'),
+        'dmarc_ok': bool(domain and domain.dmarc_record),
+        'tls': (smtp.encryption.upper() if smtp and smtp.encryption else 'NONE'),
+        'tls_ok': bool(smtp and smtp.encryption in ('tls', 'ssl')),
+    }
+    health['all_ok'] = health['spf_ok'] and health['dkim_ok'] and health['dmarc_ok'] and health['tls_ok']
+
+    # ---- Detailed dispatch log (real rows only) ----
     recent_dispatches = []
-    for c in campaigns[:6]:
+    for c in sorted(campaigns, key=lambda x: x.created_at or now, reverse=True)[:6]:
+        rate = round((c.sent_count - c.failed_count) / c.sent_count * 100, 1) if c.sent_count else 0.0
         recent_dispatches.append({
-            'title': c.title,
-            'subject': c.subject,
-            'type': 'Campaign',
-            'sent': c.sent_count,
-            'failed': c.failed_count,
-            'rate': '99.8%',
-            'date': c.created_at.strftime('%b %d, %Y')
+            'title': c.title, 'subject': c.subject, 'type': 'Campaign',
+            'sent': c.sent_count, 'failed': c.failed_count, 'rate': f"{rate}%",
+            'date': c.created_at.strftime('%b %d, %Y') if c.created_at else '—'
         })
-    
-    webmail_msgs = Message.query.filter_by(sender_email=current_user.email).order_by(Message.id.desc()).limit(8).all()
-    for m in webmail_msgs:
+    for m in sorted(sent_messages, key=lambda x: x.id, reverse=True)[:8]:
         recent_dispatches.append({
-            'title': f"To: {m.recipient_email}",
-            'subject': m.subject,
-            'type': 'Direct SMTP',
-            'sent': 1,
-            'failed': 0,
-            'rate': '100%',
-            'date': m.created_at.strftime('%b %d, %Y')
+            'title': f"To: {m.recipient_email}", 'subject': m.subject, 'type': 'Direct SMTP',
+            'sent': 1, 'failed': 0, 'rate': '100%',
+            'date': m.created_at.strftime('%b %d, %Y') if m.created_at else '—'
         })
-
-    # Benchmark fallback if account is brand new
-    if not recent_dispatches:
-        recent_dispatches = [
-            {'title': 'Product Launch & Beta Access', 'subject': 'Your invitation to Brightlant 2.0', 'type': 'Campaign', 'sent': 450, 'failed': 1, 'rate': '99.8%', 'date': 'Today'},
-            {'title': 'Direct Outreach: Partner Onboarding', 'subject': 'Discussion on enterprise mail deliverability', 'type': 'Direct SMTP', 'sent': 180, 'failed': 0, 'rate': '100%', 'date': 'Yesterday'},
-            {'title': 'Weekly Security Audit Summary', 'subject': 'SSL & DMARC verification report', 'type': 'System Alert', 'sent': 220, 'failed': 0, 'rate': '100%', 'date': 'Sep 21, 2026'},
-            {'title': 'Customer Feedback & Survey', 'subject': 'How was your webmail experience this month?', 'type': 'Campaign', 'sent': 398, 'failed': 1, 'rate': '99.7%', 'date': 'Sep 19, 2026'}
-        ]
 
     return render_template('user/analytics.html',
-                           total_campaigns=max(total_campaigns, 4),
-                           total_sent=max(total_dispatches, 1248),
+                           total_campaigns=total_campaigns,
+                           total_sent=total_dispatched,
                            total_failed=total_failed,
-                           opened_count=max(opened_count, 552),
+                           opened_count=opened_count,
                            open_rate=open_rate,
+                           delivery_rate=delivery_rate,
+                           bounce_rate=bounce_rate,
+                           sender_score=sender_score,
+                           dispatch_delta=dispatch_delta,
+                           chart_data=chart_data,
+                           provider_data=provider_data,
+                           hourly_labels=hourly_labels,
+                           hourly_data=hourly_data,
+                           peak_label=peak_label,
+                           health=health,
                            campaigns=campaigns,
                            recent_dispatches=recent_dispatches)
 

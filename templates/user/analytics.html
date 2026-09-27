@@ -35,7 +35,9 @@
         <div class="fc-analytics-card h-100">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <span class="text-muted fw-700 text-uppercase" style="font-size: 11px; letter-spacing: 0.8px;">Total Dispatched</span>
-                <span class="fc-metric-delta positive"><i class="fas fa-arrow-up"></i> +14.2%</span>
+                <span class="fc-metric-delta {{ 'positive' if dispatch_delta >= 0 else 'negative' }}">
+                    <i class="fas fa-arrow-{{ 'up' if dispatch_delta >= 0 else 'down' }}"></i> {{ '+' if dispatch_delta >= 0 else '' }}{{ dispatch_delta }}%
+                </span>
             </div>
             <h2 class="display-6 fw-800 text-dark my-1" id="kpiTotalDispatched">{{ "{:,}".format(total_sent) }}</h2>
             <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top">
@@ -50,12 +52,14 @@
         <div class="fc-analytics-card h-100">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <span class="text-muted fw-700 text-uppercase" style="font-size: 11px; letter-spacing: 0.8px;">Delivery Rate</span>
-                <span class="fc-metric-delta positive"><i class="fas fa-check"></i> Optimal</span>
+                <span class="fc-metric-delta {{ 'positive' if delivery_rate >= 95 else 'negative' }}">
+                    <i class="fas fa-{{ 'check' if delivery_rate >= 95 else 'triangle-exclamation' }}"></i> {{ 'Optimal' if delivery_rate >= 95 else 'Review' }}
+                </span>
             </div>
-            <h2 class="display-6 fw-800 text-fc-blue my-1" id="kpiDeliveryRate">99.8%</h2>
+            <h2 class="display-6 fw-800 text-fc-blue my-1" id="kpiDeliveryRate">{{ delivery_rate }}%</h2>
             <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top">
-                <span class="text-muted" style="font-size: 12px;">Inbox Placement</span>
-                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2.5 fw-700">Primary Inbox</span>
+                <span class="text-muted" style="font-size: 12px;">Delivered</span>
+                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2.5 fw-700">{{ "{:,}".format(total_sent - total_failed) }} mails</span>
             </div>
         </div>
     </div>
@@ -65,11 +69,11 @@
         <div class="fc-analytics-card h-100">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <span class="text-muted fw-700 text-uppercase" style="font-size: 11px; letter-spacing: 0.8px;">Open Rate</span>
-                <span class="fc-metric-delta positive"><i class="fas fa-arrow-trend-up"></i> 2.1x Benchmark</span>
+                <span class="fc-metric-delta positive"><i class="fas fa-envelope-open"></i> Campaign opens</span>
             </div>
             <h2 class="display-6 fw-800 text-dark my-1" id="kpiOpenRate">{{ open_rate }}%</h2>
             <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top">
-                <span class="text-muted" style="font-size: 12px;">Verified Engaged</span>
+                <span class="text-muted" style="font-size: 12px;">Tracked Opens</span>
                 <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-2.5 fw-700 font-mono" id="kpiOpenedCount">{{ "{:,}".format(opened_count) }} Opens</span>
             </div>
         </div>
@@ -80,12 +84,12 @@
         <div class="fc-analytics-card h-100">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <span class="text-muted fw-700 text-uppercase" style="font-size: 11px; letter-spacing: 0.8px;">Bounce & Rejection</span>
-                <span class="fc-metric-delta positive" style="color: #059669; background: rgba(5,150,105,0.1);"><i class="fas fa-shield-heart"></i> Low Risk</span>
+                <span class="fc-metric-delta positive" style="color: #059669; background: rgba(5,150,105,0.1);"><i class="fas fa-shield-heart"></i> {{ 'Low Risk' if bounce_rate < 2 else 'Elevated' }}</span>
             </div>
-            <h2 class="display-6 fw-800 my-1" style="color: #059669;" id="kpiBounceRate">0.2%</h2>
+            <h2 class="display-6 fw-800 my-1" style="color: #059669;" id="kpiBounceRate">{{ bounce_rate }}%</h2>
             <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top">
                 <span class="text-muted" style="font-size: 12px;">Sender Reputation</span>
-                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2.5 fw-700">Score: 99.4/100</span>
+                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2.5 fw-700">Score: {{ sender_score }}/100</span>
             </div>
         </div>
     </div>
@@ -158,7 +162,7 @@
                             <span style="width: 8px; height: 8px; border-radius: 50%; background: #2563eb;"></span>
                             <span class="text-muted fw-600" style="font-size: 11px;">Google / Gmail</span>
                         </div>
-                        <div class="fw-800 text-dark" style="font-size: 14px;">48.2% <small class="text-success fw-600" style="font-size: 10.5px;">(Inbox)</small></div>
+                        <div class="fw-800 text-dark" style="font-size: 14px;">{{ provider_data[0] }}% <small class="text-success fw-600" style="font-size: 10.5px;">(Inbox)</small></div>
                     </div>
                 </div>
                 <div class="col-6">
@@ -167,7 +171,7 @@
                             <span style="width: 8px; height: 8px; border-radius: 50%; background: #0284c7;"></span>
                             <span class="text-muted fw-600" style="font-size: 11px;">Microsoft 365</span>
                         </div>
-                        <div class="fw-800 text-dark" style="font-size: 14px;">28.5% <small class="text-success fw-600" style="font-size: 10.5px;">(Inbox)</small></div>
+                        <div class="fw-800 text-dark" style="font-size: 14px;">{{ provider_data[1] }}% <small class="text-success fw-600" style="font-size: 10.5px;">(Inbox)</small></div>
                     </div>
                 </div>
                 <div class="col-6">
@@ -176,7 +180,7 @@
                             <span style="width: 8px; height: 8px; border-radius: 50%; background: #7c3aed;"></span>
                             <span class="text-muted fw-600" style="font-size: 11px;">Apple / iCloud</span>
                         </div>
-                        <div class="fw-800 text-dark" style="font-size: 14px;">13.8% <small class="text-success fw-600" style="font-size: 10.5px;">(Inbox)</small></div>
+                        <div class="fw-800 text-dark" style="font-size: 14px;">{{ provider_data[2] }}% <small class="text-success fw-600" style="font-size: 10.5px;">(Inbox)</small></div>
                     </div>
                 </div>
                 <div class="col-6">
@@ -185,7 +189,7 @@
                             <span style="width: 8px; height: 8px; border-radius: 50%; background: #059669;"></span>
                             <span class="text-muted fw-600" style="font-size: 11px;">Corporate MX</span>
                         </div>
-                        <div class="fw-800 text-dark" style="font-size: 14px;">9.5% <small class="text-success fw-600" style="font-size: 10.5px;">(Inbox)</small></div>
+                        <div class="fw-800 text-dark" style="font-size: 14px;">{{ provider_data[3] }}% <small class="text-success fw-600" style="font-size: 10.5px;">(Inbox)</small></div>
                     </div>
                 </div>
             </div>
@@ -198,10 +202,10 @@
             <div class="fc-chart-box-header">
                 <div>
                     <h5 class="fw-800 text-dark mb-0" style="font-size: 16px;">Recipient Open Times & Peak Engagement</h5>
-                    <small class="text-muted">Hourly engagement distribution (Optimal Dispatch Window: 10 AM & 2 PM)</small>
+                    <small class="text-muted">Hourly send & open distribution across your mailbox activity</small>
                 </div>
                 <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-2.5 py-1 fw-700" style="font-size: 11px;">
-                    Peak: 2:30 PM
+                    Peak: {{ peak_label }}
                 </span>
             </div>
 
@@ -221,8 +225,8 @@
             <i class="fas fa-shield-halved text-success fs-5"></i>
             <h6 class="fw-800 text-dark mb-0">Domain Security & Deliverability Health Status</h6>
         </div>
-        <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-1 fw-700">
-            <i class="fas fa-circle-check me-1"></i> All Protocols Passed
+        <span class="badge {{ 'bg-success bg-opacity-10 text-success' if health.all_ok else 'bg-warning bg-opacity-10 text-warning' }} rounded-pill px-3 py-1 fw-700">
+            <i class="fas fa-{{ 'circle-check' if health.all_ok else 'triangle-exclamation' }} me-1"></i> {{ 'All Protocols Passed' if health.all_ok else 'Action Needed' }}
         </span>
     </div>
 
@@ -235,9 +239,9 @@
                 <div class="min-w-0">
                     <div class="d-flex align-items-center gap-1.5">
                         <span class="fw-700 text-dark" style="font-size: 13px;">SPF Validation</span>
-                        <i class="fas fa-check-circle text-success" style="font-size: 11px;"></i>
+                        <i class="fas fa-{{ 'check-circle text-success' if health.spf_ok else 'circle-xmark text-danger' }}" style="font-size: 11px;"></i>
                     </div>
-                    <small class="text-muted font-mono d-block text-truncate" style="font-size: 11px;">v=spf1 include:_spf... ~all</small>
+                    <small class="text-muted font-mono d-block text-truncate" style="font-size: 11px;">{{ health.spf|truncate(30, True) }}</small>
                 </div>
             </div>
         </div>
@@ -250,9 +254,9 @@
                 <div class="min-w-0">
                     <div class="d-flex align-items-center gap-1.5">
                         <span class="fw-700 text-dark" style="font-size: 13px;">DKIM Signature</span>
-                        <i class="fas fa-check-circle text-success" style="font-size: 11px;"></i>
+                        <i class="fas fa-{{ 'check-circle text-success' if health.dkim_ok else 'circle-xmark text-danger' }}" style="font-size: 11px;"></i>
                     </div>
-                    <small class="text-muted font-mono d-block text-truncate" style="font-size: 11px;">2048-bit RSA Encryption</small>
+                    <small class="text-muted font-mono d-block text-truncate" style="font-size: 11px;">{{ '2048-bit RSA signed' if health.dkim_ok else 'Not configured' }}</small>
                 </div>
             </div>
         </div>
@@ -265,9 +269,9 @@
                 <div class="min-w-0">
                     <div class="d-flex align-items-center gap-1.5">
                         <span class="fw-700 text-dark" style="font-size: 13px;">DMARC Policy</span>
-                        <i class="fas fa-check-circle text-success" style="font-size: 11px;"></i>
+                        <i class="fas fa-{{ 'check-circle text-success' if health.dmarc_ok else 'circle-xmark text-danger' }}" style="font-size: 11px;"></i>
                     </div>
-                    <small class="text-muted font-mono d-block text-truncate" style="font-size: 11px;">p=quarantine; pct=100</small>
+                    <small class="text-muted font-mono d-block text-truncate" style="font-size: 11px;">{{ health.dmarc|truncate(28, True) }}</small>
                 </div>
             </div>
         </div>
@@ -280,9 +284,9 @@
                 <div class="min-w-0">
                     <div class="d-flex align-items-center gap-1.5">
                         <span class="fw-700 text-dark" style="font-size: 13px;">TLS Encryption</span>
-                        <i class="fas fa-check-circle text-success" style="font-size: 11px;"></i>
+                        <i class="fas fa-{{ 'check-circle text-success' if health.tls_ok else 'circle-xmark text-danger' }}" style="font-size: 11px;"></i>
                     </div>
-                    <small class="text-muted font-mono d-block text-truncate" style="font-size: 11px;">TLS 1.3 Strict Cipher</small>
+                    <small class="text-muted font-mono d-block text-truncate" style="font-size: 11px;">{{ health.tls }} transport{{ ' secured' if health.tls_ok else '' }}</small>
                 </div>
             </div>
         </div>
@@ -337,20 +341,33 @@
                         {% endif %}
                     </td>
                     <td>
+                        {% if d.failed > 0 %}
+                        <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-2.5 py-1 fw-700" style="font-size: 11px;">
+                            <i class="fas fa-triangle-exclamation me-1"></i> Partial
+                        </span>
+                        {% else %}
                         <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2.5 py-1 fw-700" style="font-size: 11px;">
                             <i class="fas fa-check-circle me-1"></i> Delivered
                         </span>
+                        {% endif %}
                     </td>
                     <td style="width: 140px;">
                         <div class="d-flex align-items-center gap-2">
                             <span class="fw-700 text-dark" style="font-size: 12px;">{{ d.rate }}</span>
                             <div class="progress" style="height: 6px; flex: 1; border-radius: 4px; background: rgba(5,150,105,0.15);">
-                                <div class="progress-bar bg-success" style="width: 100%;"></div>
+                                <div class="progress-bar {{ 'bg-success' if d.failed == 0 else 'bg-warning' }}" style="width: {{ d.rate }};"></div>
                             </div>
                         </div>
                     </td>
                     <td class="text-end pe-3 font-mono text-muted" style="font-size: 12px;">
                         {{ d.date }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-5">
+                        <i class="fas fa-inbox d-block mb-2" style="font-size: 26px; opacity: 0.4;"></i>
+                        No dispatches yet — send your first email or run a campaign to see telemetry here.
                     </td>
                 </tr>
                 {% endfor %}
@@ -364,56 +381,11 @@
      ════════════════════════════════════════════════════════ -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-// Analytics Datasets for 7D, 14D, 30D, 90D
-const analyticsDatasets = {
-    7: {
-        labels: ['Sep 17', 'Sep 18', 'Sep 19', 'Sep 20', 'Sep 21', 'Sep 22', 'Sep 23'],
-        dispatched: [42, 65, 58, 24, 20, 78, 86],
-        opened:     [38, 56, 52, 22, 19, 72, 80],
-        bounced:    [0, 1, 0, 0, 0, 0, 0],
-        total:      '373',
-        rate:       '99.8%',
-        openRate:   '44.8%',
-        openedCount:'167 Opens',
-        dateRange:  'Last 7 Days (Sep 17 - Sep 23)'
-    },
-    14: {
-        labels: ['Sep 10', 'Sep 11', 'Sep 12', 'Sep 13', 'Sep 14', 'Sep 15', 'Sep 16', 'Sep 17', 'Sep 18', 'Sep 19', 'Sep 20', 'Sep 21', 'Sep 22', 'Sep 23'],
-        dispatched: [48, 55, 62, 38, 18, 15, 60, 42, 65, 58, 24, 20, 78, 86],
-        opened:     [44, 50, 56, 34, 16, 14, 54, 38, 56, 52, 22, 19, 72, 80],
-        bounced:    [1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-        total:      '669',
-        rate:       '99.7%',
-        openRate:   '43.6%',
-        openedCount:'292 Opens',
-        dateRange:  'Last 14 Days (Sep 10 - Sep 23)'
-    },
-    30: {
-        labels: [
-            'Aug 25', 'Aug 27', 'Aug 29', 'Aug 31', 'Sep 02', 'Sep 04', 'Sep 06',
-            'Sep 08', 'Sep 10', 'Sep 12', 'Sep 14', 'Sep 16', 'Sep 18', 'Sep 20', 'Sep 22', 'Sep 23'
-        ],
-        dispatched: [84, 96, 68, 42, 88, 102, 45, 92, 110, 85, 40, 95, 114, 78, 106, 92],
-        opened:     [76, 88, 62, 38, 80, 92, 40, 84, 98, 76, 36, 86, 104, 70, 96, 84],
-        bounced:    [1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0],
-        total:      '{{ "{:,}".format(total_sent) }}',
-        rate:       '99.8%',
-        openRate:   '{{ open_rate }}%',
-        openedCount:'{{ "{:,}".format(opened_count) }} Opens',
-        dateRange:  'Last 30 Days (Aug 25 - Sep 23)'
-    },
-    90: {
-        labels: ['Jul W1', 'Jul W2', 'Jul W3', 'Jul W4', 'Aug W1', 'Aug W2', 'Aug W3', 'Aug W4', 'Sep W1', 'Sep W2', 'Sep W3', 'Sep W4'],
-        dispatched: [320, 365, 290, 410, 440, 380, 490, 420, 510, 480, 530, 495],
-        opened:     [290, 330, 260, 370, 395, 340, 445, 380, 460, 435, 480, 450],
-        bounced:    [2, 3, 1, 2, 2, 1, 3, 2, 1, 2, 1, 1],
-        total:      '4,930',
-        rate:       '99.6%',
-        openRate:   '42.1%',
-        openedCount:'2,075 Opens',
-        dateRange:  'Last 90 Days (Q3 Performance)'
-    }
-};
+// Real analytics datasets (7D / 14D / 30D / 90D) built server-side from DB rows
+const analyticsDatasets = {{ chart_data|tojson }};
+const providerData = {{ provider_data|tojson }};
+const hourlyLabels = {{ hourly_labels|tojson }};
+const hourlyData = {{ hourly_data|tojson }};
 
 let throughputChartInstance = null;
 let providerChartInstance = null;
@@ -579,7 +551,7 @@ function initProviderChart() {
         data: {
             labels: ['Google / Gmail', 'Microsoft 365', 'Apple / iCloud', 'Corporate MX'],
             datasets: [{
-                data: [48.2, 28.5, 13.8, 9.5],
+                data: providerData,
                 backgroundColor: ['#2563eb', '#0284c7', '#7c3aed', '#059669'],
                 borderWidth: dark ? 2 : 2,
                 borderColor: dark ? '#111c35' : '#ffffff',
@@ -617,11 +589,12 @@ function initHourlyChart() {
     const gridColor = dark ? 'rgba(255,255,255,0.06)' : 'rgba(226,232,240,0.7)';
     const labelColor = dark ? '#94a3b8' : '#64748b';
 
-    const hours = ['8 AM', '9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM', '8 PM'];
-    const opens = [28, 64, 118, 95, 70, 84, 136, 110, 88, 62, 54, 32, 18];
+    const hours = hourlyLabels;
+    const opens = hourlyData;
 
-    // Highlight peak hour
-    const bgColors = opens.map(val => val >= 120 ? '#2563eb' : (dark ? 'rgba(37,99,235,0.4)' : 'rgba(37,99,235,0.25)'));
+    // Highlight the real peak hour(s)
+    const peakVal = Math.max.apply(null, opens.length ? opens : [0]);
+    const bgColors = opens.map(val => (peakVal > 0 && val === peakVal) ? '#2563eb' : (dark ? 'rgba(37,99,235,0.4)' : 'rgba(37,99,235,0.25)'));
 
     hourlyChartInstance = new Chart(ctx, {
         type: 'bar',

@@ -56,6 +56,54 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // On phones, tapping a nav link should close the slide-in sidebar
+    if (sidebar) {
+        sidebar.querySelectorAll('.sidebar-link').forEach(function (lnk) {
+            lnk.addEventListener('click', function () {
+                if (window.matchMedia('(max-width: 768px)').matches) {
+                    sidebar.classList.remove('expanded');
+                    if (sidebarBackdrop) sidebarBackdrop.classList.remove('show');
+                }
+            });
+        });
+    }
+
+    // ── Webmail master/detail on phones ──
+    // Desktop shows list + reading pane together. On ≤768px we show the list
+    // full-width and swap to the reading pane (with a Back bar) when a mail opens.
+    (function () {
+        const container = document.querySelector('.fc-webmail-container');
+        if (!container) return;
+        const listPane = container.querySelector('.fc-webmail-list-pane');
+        const viewPane = container.querySelector('.fc-webmail-view-pane');
+        if (!listPane || !viewPane) return;
+
+        const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+
+        // Inject a "Back to list" bar at the top of the reading pane
+        if (!viewPane.querySelector('.fc-mobile-back')) {
+            const back = document.createElement('div');
+            back.className = 'fc-mobile-back';
+            back.innerHTML = '<i class="fas fa-arrow-left"></i><span>Back to list</span>';
+            back.addEventListener('click', function () {
+                container.classList.remove('show-detail');
+            });
+            viewPane.insertBefore(back, viewPane.firstChild);
+        }
+
+        // Opening a mail on mobile reveals the reading pane
+        listPane.addEventListener('click', function (e) {
+            if (e.target.closest('.fc-mail-item') && isMobile()) {
+                container.classList.add('show-detail');
+            }
+        });
+
+        // Returning to a wide screen clears the mobile-only detail state
+        window.addEventListener('resize', function () {
+            if (!isMobile()) container.classList.remove('show-detail');
+        });
+    })();
+
     // Sidebar Active Link Auto-Highlighting
     const currentPath = window.location.pathname;
     const sidebarLinks = document.querySelectorAll('.sidebar-link');

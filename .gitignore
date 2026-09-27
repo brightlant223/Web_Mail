@@ -15,6 +15,7 @@ env/
 .env
 *.env
 config_local.py
+.secret_key
 
 # Database (contains SMTP credentials & user data — never commit)
 instance/
