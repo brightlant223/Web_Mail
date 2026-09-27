@@ -2,6 +2,7 @@ import os
 import io
 import csv
 import json
+import time
 import socket
 import secrets
 import threading
@@ -9,10 +10,10 @@ import pandas as pd
 from datetime import datetime, date, timedelta
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify, Response, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify, Response, send_from_directory, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 
-from models import db, User, Domain, Campaign, EmailLog, Contact, Template, SMTPSetting, SystemLog, Message, UserProfile, ApiKey, Attachment, ResearchChecklist, PushSubscription
+from models import db, User, Domain, Campaign, EmailLog, Contact, Template, SMTPSetting, SystemLog, Message, UserProfile, ApiKey, Attachment, ResearchChecklist, PushSubscription, WebAuthnCredential
 from mailer import start_campaign_async, get_smtp_config, send_real_single_email
 from ai_copilot import generate_ai_email, generate_ai_subject, improve_ai_text
 from header_parser import parse_email_header, SAMPLE_NEXUS_HEADER
@@ -465,6 +466,10 @@ def login():
             clear_failed_login_attempts(rate_key)
             remember_me = True if request.form.get('remember') or request.form.get('rememberMe') else False
             login_user(user, remember=remember_me)
+            # Just proved identity with a password — don't demand a fingerprint on
+            # this very next page. Mark unlocked and set a one-shot grace flag.
+            _mark_biometric_unlocked()
+            session['bio_grace'] = True
             log_system_event('auth', f"✅ User {user.email} logged in successfully from IP {client_ip} (SSL Encrypted).", user.email)
             flash(f"Welcome back, {user.name}! Authenticated & SSL Encrypted Session Active.", "success")
             if user.role == 'admin':
@@ -2334,6 +2339,212 @@ def api_push_unsubscribe():
     if endpoint:
         PushSubscription.query.filter_by(endpoint=endpoint, user_id=current_user.id).delete()
         db.session.commit()
+    return jsonify({'status': 'success'})
+
+# ═══════════════════════════════════════════════════════════════════
+#  BIOMETRIC APP LOCK — WebAuthn (fingerprint / Face ID / Windows Hello)
+#  After a normal password login, the installed PWA re-opens only after a
+#  fingerprint/face check. Platform authenticators, verified server-side.
+# ═══════════════════════════════════════════════════════════════════
+from webauthn import (
+    generate_registration_options, verify_registration_response,
+    generate_authentication_options, verify_authentication_response,
+    options_to_json,
+)
+from webauthn.helpers import bytes_to_base64url, base64url_to_bytes
+from webauthn.helpers.structs import (
+    AuthenticatorSelectionCriteria, ResidentKeyRequirement,
+    UserVerificationRequirement, AuthenticatorAttachment,
+    PublicKeyCredentialDescriptor,
+)
+
+BIOMETRIC_IDLE_SECONDS = 120  # server backstop: auto-lock after this much inactivity
+
+def _webauthn_rp_id():
+    # Relying Party ID must be the registrable domain (host without port).
+    return (request.host or 'localhost').split(':')[0]
+
+def _webauthn_origin():
+    proto = request.headers.get('X-Forwarded-Proto', request.scheme) or 'http'
+    return f"{proto}://{request.host}"
+
+def _user_has_webauthn(user_id):
+    return db.session.query(WebAuthnCredential.id).filter_by(user_id=user_id).first() is not None
+
+def _home_url():
+    if getattr(current_user, 'role', None) == 'admin':
+        return url_for('admin_dashboard')
+    return url_for('webmail_inbox')
+
+def _mark_biometric_unlocked():
+    session['bio_unlocked_at'] = time.time()
+
+def _biometric_locked():
+    ts = session.get('bio_unlocked_at')
+    return (not ts) or (time.time() - ts) > BIOMETRIC_IDLE_SECONDS
+
+# Paths that stay reachable even while the app is locked.
+_BIO_OPEN_PREFIXES = ('/static', '/api/webauthn', '/api/push')
+_BIO_OPEN_EXACT = {'/lock', '/login', '/logout', '/register', '/manifest.json', '/sw.js', '/favicon.ico'}
+
+@app.before_request
+def _biometric_lock_gate():
+    """Server backstop for the app lock: if the signed-in user has a biometric
+    enrolled and the session has gone idle, HTML page loads are redirected to the
+    /lock screen. APIs pass through so background polling keeps working — the lock
+    screen is what the user actually sees. Never blocks its own unlock endpoints."""
+    try:
+        if not current_user.is_authenticated:
+            return
+        if not _user_has_webauthn(current_user.id):
+            return
+        p = request.path or '/'
+        if p in _BIO_OPEN_EXACT or any(p.startswith(pre) for pre in _BIO_OPEN_PREFIXES):
+            return
+        if _biometric_locked():
+            if request.method == 'GET' and 'text/html' in (request.headers.get('Accept', '') or ''):
+                return redirect(url_for('lock_screen', next=request.full_path))
+            return
+        _mark_biometric_unlocked()  # slide the idle window forward on genuine activity
+    except Exception:
+        # A gate failure must never lock a user out of their own mailbox.
+        return
+
+@app.context_processor
+def _inject_biometric_flags():
+    enrolled = bool(current_user.is_authenticated and _user_has_webauthn(current_user.id))
+    grace = bool(session.pop('bio_grace', False))  # one-shot: skip the lock right after a password login
+    return {'bio_enrolled': enrolled, 'bio_grace': grace}
+
+@app.route('/lock')
+@login_required
+def lock_screen():
+    if not _user_has_webauthn(current_user.id):
+        return redirect(_home_url())
+    nxt = request.args.get('next') or _home_url()
+    if not nxt.startswith('/') or nxt.startswith('//'):
+        nxt = _home_url()
+    return render_template('lock.html', next_url=nxt)
+
+@app.route('/api/webauthn/lock', methods=['POST'])
+@login_required
+def api_webauthn_lock():
+    session.pop('bio_unlocked_at', None)
+    return jsonify({'status': 'locked'})
+
+@app.route('/api/webauthn/status')
+@login_required
+def api_webauthn_status():
+    return jsonify({'enrolled': _user_has_webauthn(current_user.id)})
+# __WEBAUTHN_SERVER_2__
+
+@app.route('/api/webauthn/register/begin', methods=['POST'])
+@login_required
+def api_webauthn_register_begin():
+    existing = WebAuthnCredential.query.filter_by(user_id=current_user.id).all()
+    options = generate_registration_options(
+        rp_id=_webauthn_rp_id(),
+        rp_name='Brightlant Webmail',
+        user_id=str(current_user.id).encode('utf-8'),
+        user_name=current_user.email,
+        user_display_name=current_user.name,
+        authenticator_selection=AuthenticatorSelectionCriteria(
+            authenticator_attachment=AuthenticatorAttachment.PLATFORM,
+            resident_key=ResidentKeyRequirement.PREFERRED,
+            user_verification=UserVerificationRequirement.REQUIRED,
+        ),
+        exclude_credentials=[
+            PublicKeyCredentialDescriptor(id=base64url_to_bytes(c.credential_id))
+            for c in existing
+        ],
+    )
+    session['bio_reg_chal'] = bytes_to_base64url(options.challenge)
+    return Response(options_to_json(options), mimetype='application/json')
+
+@app.route('/api/webauthn/register/complete', methods=['POST'])
+@login_required
+def api_webauthn_register_complete():
+    expected = session.pop('bio_reg_chal', None)
+    if not expected:
+        return jsonify({'status': 'error', 'message': 'Enrollment expired, please try again.'}), 400
+    try:
+        verification = verify_registration_response(
+            credential=request.get_data(as_text=True),
+            expected_challenge=base64url_to_bytes(expected),
+            expected_rp_id=_webauthn_rp_id(),
+            expected_origin=_webauthn_origin(),
+            require_user_verification=True,
+        )
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Could not verify device: {e}'}), 400
+    cred_id = bytes_to_base64url(verification.credential_id)
+    if not WebAuthnCredential.query.filter_by(credential_id=cred_id).first():
+        db.session.add(WebAuthnCredential(
+            user_id=current_user.id,
+            credential_id=cred_id,
+            public_key=bytes_to_base64url(verification.credential_public_key),
+            sign_count=verification.sign_count or 0,
+            device_label=_short_device(request.headers.get('User-Agent', '')),
+            last_used_at=datetime.utcnow(),
+        ))
+        db.session.commit()
+    _mark_biometric_unlocked()
+    log_system_event('auth', f"App lock enrolled a biometric for {current_user.email}.", current_user.email)
+    return jsonify({'status': 'success'})
+
+@app.route('/api/webauthn/auth/begin', methods=['POST'])
+@login_required
+def api_webauthn_auth_begin():
+    creds = WebAuthnCredential.query.filter_by(user_id=current_user.id).all()
+    if not creds:
+        return jsonify({'status': 'error', 'message': 'No biometric enrolled.'}), 400
+    options = generate_authentication_options(
+        rp_id=_webauthn_rp_id(),
+        allow_credentials=[
+            PublicKeyCredentialDescriptor(id=base64url_to_bytes(c.credential_id))
+            for c in creds
+        ],
+        user_verification=UserVerificationRequirement.REQUIRED,
+    )
+    session['bio_auth_chal'] = bytes_to_base64url(options.challenge)
+    return Response(options_to_json(options), mimetype='application/json')
+
+@app.route('/api/webauthn/auth/complete', methods=['POST'])
+@login_required
+def api_webauthn_auth_complete():
+    expected = session.pop('bio_auth_chal', None)
+    if not expected:
+        return jsonify({'status': 'error', 'message': 'Unlock expired, please try again.'}), 400
+    data = request.get_json(silent=True) or {}
+    stored = WebAuthnCredential.query.filter_by(
+        user_id=current_user.id, credential_id=data.get('id')).first()
+    if not stored:
+        return jsonify({'status': 'error', 'message': 'This device is not enrolled.'}), 400
+    try:
+        verification = verify_authentication_response(
+            credential=request.get_data(as_text=True),
+            expected_challenge=base64url_to_bytes(expected),
+            expected_rp_id=_webauthn_rp_id(),
+            expected_origin=_webauthn_origin(),
+            credential_public_key=base64url_to_bytes(stored.public_key),
+            credential_current_sign_count=stored.sign_count or 0,
+            require_user_verification=True,
+        )
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Could not verify: {e}'}), 400
+    stored.sign_count = verification.new_sign_count
+    stored.last_used_at = datetime.utcnow()
+    db.session.commit()
+    _mark_biometric_unlocked()
+    return jsonify({'status': 'success'})
+
+@app.route('/api/webauthn/disable', methods=['POST'])
+@login_required
+def api_webauthn_disable():
+    WebAuthnCredential.query.filter_by(user_id=current_user.id).delete()
+    session.pop('bio_unlocked_at', None)
+    db.session.commit()
+    log_system_event('auth', f"App lock (biometric) turned off for {current_user.email}.", current_user.email)
     return jsonify({'status': 'success'})
 
 @app.route('/admin/smtp/test-real', methods=['POST'])

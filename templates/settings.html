@@ -116,6 +116,20 @@
             </div>
         </div>
 
+        <!-- Security / App Lock -->
+        <div class="set-card p-4 mb-4" id="sec-applock">
+            <div class="set-sec-title">Security</div>
+            <h5 class="fw-bold text-dark mb-3">App lock</h5>
+            <div class="set-row">
+                <div class="ic"><i class="fas fa-fingerprint"></i></div>
+                <div class="flex-grow-1">
+                    <h6>Fingerprint / Face unlock</h6>
+                    <p>After you sign in once, the app re-opens only after your fingerprint or face (Face&nbsp;ID / Windows&nbsp;Hello) on this device. <span id="bioLockState" class="fw-700"></span></p>
+                </div>
+                <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="setAppLock" style="width:2.6em;height:1.4em;" {% if bio_enrolled %}checked{% endif %}></div>
+            </div>
+        </div>
+
         <!-- Sound Alerts -->
         <div class="set-card p-4 mb-4" id="sec-sound">
             <div class="set-sec-title">Sound Alerts</div>
@@ -267,6 +281,30 @@
     permBtn.addEventListener('click', () => {
         if (typeof registerWebPush === 'function') registerWebPush(true).then(refreshPerm);
         else if ('Notification' in window) Notification.requestPermission().then(refreshPerm);
+    });
+
+    // App lock (biometric: fingerprint / Face ID / Windows Hello)
+    const appLock = document.getElementById('setAppLock');
+    const bioState = document.getElementById('bioLockState');
+    function refreshBioState() {
+        if (!window.PublicKeyCredential) { bioState.textContent = '(not supported on this device)'; if (appLock) appLock.disabled = true; return; }
+        bioState.textContent = appLock && appLock.checked ? 'On for this device.' : '';
+    }
+    refreshBioState();
+    if (appLock) appLock.addEventListener('change', async () => {
+        if (appLock.checked) {
+            const ok = (typeof enrollBiometric === 'function') && await enrollBiometric();
+            appLock.checked = !!ok;
+            if (ok) { window.BIO_ENROLLED = true; FCDialog.toast("App lock enabled — you'll unlock with fingerprint / face.", 'success'); }
+            refreshBioState();
+        } else {
+            const yes = await FCDialog.confirm({ message: 'Turn off fingerprint / face unlock for the app?', tone: 'danger', confirmText: 'Turn off' });
+            if (!yes) { appLock.checked = true; return; }
+            const done = (typeof disableBiometric === 'function') && await disableBiometric();
+            if (done) { window.BIO_ENROLLED = false; try { sessionStorage.removeItem('bioLive'); } catch (e) {} FCDialog.toast('App lock turned off.', 'info'); }
+            else appLock.checked = true;
+            refreshBioState();
+        }
     });
 
     // Theme

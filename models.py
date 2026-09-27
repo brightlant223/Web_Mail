@@ -187,3 +187,17 @@ class PushSubscription(db.Model):
     auth = db.Column(db.String(255), nullable=False)
     user_agent = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class WebAuthnCredential(db.Model):
+    """A biometric / platform passkey (fingerprint, Face ID, Windows Hello)
+    registered on one of a user's devices. Used to lock the installed app so it
+    re-opens only after a fingerprint/face check."""
+    __tablename__ = 'webauthn_credentials'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    credential_id = db.Column(db.String(500), unique=True, nullable=False)  # base64url
+    public_key = db.Column(db.Text, nullable=False)                         # base64url COSE key
+    sign_count = db.Column(db.Integer, default=0)
+    device_label = db.Column(db.String(160), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_used_at = db.Column(db.DateTime, nullable=True)

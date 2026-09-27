@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Locked — Brightlant Webmail</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body { margin:0; min-height:100vh; min-height:100dvh; display:flex; align-items:center; justify-content:center;
+               background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 100%); padding:20px; }
+        .lock-card { width:100%; max-width:380px; background:#fff; border-radius:22px; padding:38px 30px 30px;
+                     text-align:center; box-shadow:0 30px 70px rgba(2,6,23,.5); }
+        .lock-ring { width:84px; height:84px; margin:0 auto 20px; border-radius:50%; display:flex; align-items:center;
+                     justify-content:center; font-size:34px; color:#2563eb; background:rgba(37,99,235,.1);
+                     border:2px solid rgba(37,99,235,.25); }
+        .lock-ring.busy { animation:lockpulse 1.2s ease-in-out infinite; }
+        @keyframes lockpulse { 0%,100%{transform:scale(1);opacity:1;} 50%{transform:scale(1.06);opacity:.75;} }
+        .lock-card h1 { font-size:20px; font-weight:800; color:#0f172a; margin:0 0 6px; }
+        .lock-card p  { font-size:13.5px; color:#64748b; margin:0 0 22px; line-height:1.55; }
+        .lock-user { font-weight:700; color:#2563eb; }
+        .lock-btn { width:100%; border:none; border-radius:13px; padding:13px; font-size:14.5px; font-weight:700;
+                    background:#2563eb; color:#fff; cursor:pointer; transition:filter .15s ease; }
+        .lock-btn:hover { filter:brightness(1.06); }
+        .lock-btn:disabled { opacity:.6; cursor:default; }
+        .lock-status { font-size:12.5px; margin-top:14px; min-height:18px; }
+        .lock-status.err { color:#dc2626; }
+        .lock-status.ok  { color:#16a34a; }
+        .lock-alt { display:inline-block; margin-top:18px; font-size:12.5px; color:#64748b; text-decoration:none; font-weight:600; }
+        .lock-alt:hover { color:#dc2626; }
+        .lock-brand { margin-top:24px; font-size:11px; color:#94a3b8; letter-spacing:.3px; }
+    </style>
+</head>
+<body>
+    <div class="lock-card">
+        <div class="lock-ring" id="lockRing"><i class="fas fa-fingerprint"></i></div>
+        <h1>App locked</h1>
+        <p>Signed in as <span class="lock-user">{{ current_user.email }}</span>.<br>
+           Unlock with your fingerprint or face to continue.</p>
+        <button type="button" class="lock-btn" id="unlockBtn">
+            <i class="fas fa-fingerprint me-2"></i>Unlock
+        </button>
+        <div class="lock-status" id="lockStatus"></div>
+        <a href="{{ url_for('logout') }}" class="lock-alt">
+            <i class="fas fa-right-from-bracket me-1"></i> Use password instead
+        </a>
+        <div class="lock-brand"><i class="fas fa-shield-halved me-1"></i> Brightlant Secure SSL Webmail</div>
+    </div>
+
+    <script>
+        const NEXT_URL = {{ next_url|tojson }};
+        const ring = document.getElementById('lockRing');
+        const btn = document.getElementById('unlockBtn');
+        const status = document.getElementById('lockStatus');
+
+        function b64urlToBuf(s) {
+            s = s.replace(/-/g, '+').replace(/_/g, '/');
+            const pad = '='.repeat((4 - s.length % 4) % 4);
+            const bin = atob(s + pad);
+            const b = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+            return b.buffer;
+        }
+        function bufToB64url(buf) {
+            const b = new Uint8Array(buf);
+            let s = '';
+            for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+            return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        function setStatus(msg, cls) { status.textContent = msg || ''; status.className = 'lock-status' + (cls ? ' ' + cls : ''); }
+
+        async function unlock() {
+            if (!('credentials' in navigator) || !window.PublicKeyCredential) {
+                setStatus('This browser does not support biometric unlock. Use your password.', 'err');
+                return;
+            }
+            btn.disabled = true;
+            ring.classList.add('busy');
+            setStatus('Waiting for fingerprint / face…');
+            try {
+                const optRes = await fetch('/api/webauthn/auth/begin', { method: 'POST' });
+                const options = await optRes.json();
+                if (options.status === 'error') throw new Error(options.message || 'Unlock unavailable');
+                options.challenge = b64urlToBuf(options.challenge);
+                (options.allowCredentials || []).forEach(c => c.id = b64urlToBuf(c.id));
+
+                const assertion = await navigator.credentials.get({ publicKey: options });
+                const body = {
+                    id: assertion.id,
+                    rawId: bufToB64url(assertion.rawId),
+                    type: assertion.type,
+                    response: {
+                        clientDataJSON: bufToB64url(assertion.response.clientDataJSON),
+                        authenticatorData: bufToB64url(assertion.response.authenticatorData),
+                        signature: bufToB64url(assertion.response.signature),
+                        userHandle: assertion.response.userHandle ? bufToB64url(assertion.response.userHandle) : null
+                    }
+                };
+                const res = await fetch('/api/webauthn/auth/complete', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    try { sessionStorage.setItem('bioLive', '1'); } catch (e) {}
+                    setStatus('Unlocked', 'ok');
+                    ring.innerHTML = '<i class="fas fa-lock-open"></i>';
+                    window.location.replace(NEXT_URL);
+                } else {
+                    throw new Error(data.message || 'Unlock failed');
+                }
+            } catch (e) {
+                ring.classList.remove('busy');
+                const msg = (e && e.name === 'NotAllowedError')
+                    ? 'Unlock cancelled or timed out. Try again.'
+                    : (e && e.message) || 'Unlock failed. Try again.';
+                setStatus(msg, 'err');
+                btn.disabled = false;
+            }
+        }
+
+        btn.addEventListener('click', unlock);
+        // Auto-prompt shortly after load so the fingerprint sheet appears on open.
+        window.addEventListener('load', () => setTimeout(unlock, 350));
+    </script>
+</body>
+</html>

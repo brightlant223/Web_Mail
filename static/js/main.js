@@ -291,6 +291,88 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// --- BIOMETRIC APP LOCK (client): enroll / disable + re-lock when the app resumes ---
+function bioB64urlToBuf(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = '='.repeat((4 - s.length % 4) % 4);
+    const bin = atob(s + pad);
+    const b = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+    return b.buffer;
+}
+function bioBufToB64url(buf) {
+    const b = new Uint8Array(buf);
+    let s = '';
+    for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function enrollBiometric() {
+    if (!window.PublicKeyCredential) {
+        FCDialog.toast('This device does not support fingerprint / face unlock.', 'danger');
+        return false;
+    }
+    try {
+        const optRes = await fetch('/api/webauthn/register/begin', { method: 'POST' });
+        const options = await optRes.json();
+        if (options.status === 'error') throw new Error(options.message);
+        options.challenge = bioB64urlToBuf(options.challenge);
+        options.user.id = bioB64urlToBuf(options.user.id);
+        (options.excludeCredentials || []).forEach(c => c.id = bioB64urlToBuf(c.id));
+        const cred = await navigator.credentials.create({ publicKey: options });
+        const body = {
+            id: cred.id,
+            rawId: bioBufToB64url(cred.rawId),
+            type: cred.type,
+            response: {
+                clientDataJSON: bioBufToB64url(cred.response.clientDataJSON),
+                attestationObject: bioBufToB64url(cred.response.attestationObject)
+            }
+        };
+        const res = await fetch('/api/webauthn/register/complete', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.status !== 'success') throw new Error(data.message || 'Enrollment failed');
+        try { sessionStorage.setItem('bioLive', '1'); } catch (e) {}
+        return true;
+    } catch (e) {
+        const msg = (e && e.name === 'NotAllowedError') ? 'Setup cancelled.' : ((e && e.message) || 'Could not enable app lock.');
+        FCDialog.toast(msg, 'danger');
+        return false;
+    }
+}
+// __BIO_CLIENT_2__
+async function disableBiometric() {
+    try {
+        const res = await fetch('/api/webauthn/disable', { method: 'POST' });
+        const data = await res.json();
+        return data.status === 'success';
+    } catch (e) { return false; }
+}
+
+// Re-lock when the installed app comes back from the background after a short gap,
+// so it always asks for fingerprint/face on re-open.
+(function () {
+    if (!window.BIO_ENROLLED) return;
+    if (location.pathname.indexOf('/lock') === 0) return;
+    let hiddenAt = 0;
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') {
+            hiddenAt = Date.now();
+        } else if (document.visibilityState === 'visible') {
+            if (hiddenAt && (Date.now() - hiddenAt) > 15000) {   // away for >15s -> re-lock
+                try { sessionStorage.removeItem('bioLive'); } catch (e) {}
+                try {
+                    if (navigator.sendBeacon) navigator.sendBeacon('/api/webauthn/lock');
+                    else fetch('/api/webauthn/lock', { method: 'POST', keepalive: true });
+                } catch (e) {}
+                location.replace('/lock?next=' + encodeURIComponent(location.pathname + location.search));
+            }
+        }
+    });
+})();
+
 // --- AUDIO NOTIFICATION SYNTHESIZER (Web Audio API) — 5 device-style tones ---
 const NOTIF_DEFAULTS = { sound: 'shimmer', soundOn: true, volume: 0.6, desktop: true, toast: true };
 

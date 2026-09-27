@@ -18,6 +18,31 @@
     <meta name="theme-color" content="#2563eb">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    {% if current_user.is_authenticated %}
+    <!-- Biometric app-lock guard: on a fresh app open, force the /lock screen before paint -->
+    <script>
+        window.BIO_ENROLLED = {{ 'true' if bio_enrolled else 'false' }};
+        window.BIO_GRACE = {{ 'true' if bio_grace else 'false' }};
+        (function () {
+            if (!window.BIO_ENROLLED) return;
+            if (location.pathname.indexOf('/lock') === 0) return;
+            if (window.BIO_GRACE) {                       // just authenticated with a password
+                try { sessionStorage.setItem('bioLive', '1'); } catch (e) {}
+                return;
+            }
+            var live = false;
+            try { live = sessionStorage.getItem('bioLive') === '1'; } catch (e) {}
+            if (live) return;                             // already unlocked this app session
+            // Cold start of a new app session -> lock before anything renders.
+            document.documentElement.style.visibility = 'hidden';
+            try {
+                if (navigator.sendBeacon) navigator.sendBeacon('/api/webauthn/lock');
+                else fetch('/api/webauthn/lock', { method: 'POST', keepalive: true });
+            } catch (e) {}
+            location.replace('/lock?next=' + encodeURIComponent(location.pathname + location.search));
+        })();
+    </script>
+    {% endif %}
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
