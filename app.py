@@ -226,6 +226,101 @@ def clear_failed_login_attempts(key):
     if key in FAILED_LOGIN_ATTEMPTS:
         del FAILED_LOGIN_ATTEMPTS[key]
 
+# ── Admin-access security alerts ─────────────────────────────────────────
+# Notify the owner/admin whenever the admin account is touched — whether by
+# a team member or an outsider. Alerts are dropped into the admin inbox so
+# they surface in the existing notification bell / notifications page.
+_ADMIN_ALERT_COOLDOWN = {}  # throttle key -> last-fired datetime (anti-spam)
+
+def _client_ip():
+    xff = request.headers.get('X-Forwarded-For', '')
+    if xff:
+        return xff.split(',')[0].strip()
+    return request.remote_addr or '127.0.0.1'
+
+def _ip_origin_label(ip):
+    """Classify an IP as internal (your team/LAN) vs external (outsider)."""
+    try:
+        import ipaddress
+        addr = ipaddress.ip_address(ip)
+        if addr.is_loopback or addr.is_private or addr.is_link_local:
+            return 'internal', 'your team / internal network'
+    except ValueError:
+        pass
+    return 'external', 'an external network (outside your team)'
+
+def _short_device(ua):
+    ua = ua or ''
+    if not ua:
+        return 'Unknown device'
+    return (ua[:180] + '…') if len(ua) > 180 else ua
+
+def _alert_throttled(key, cooldown_seconds=600):
+    """True -> suppress (this alert fired too recently)."""
+    now = datetime.utcnow()
+    last = _ADMIN_ALERT_COOLDOWN.get(key)
+    if last and (now - last).total_seconds() < cooldown_seconds:
+        return True
+    _ADMIN_ALERT_COOLDOWN[key] = now
+    return False
+
+def notify_admins_security(subject, body_html):
+    """Deliver a security notification into every admin's inbox."""
+    try:
+        admins = User.query.filter_by(role='admin').all()
+        for adm in admins:
+            db.session.add(Message(
+                sender_name="Brightlant Security",
+                sender_email="security@brightlant.com",
+                recipient_email=adm.email,
+                subject=subject,
+                body_html=body_html,
+                folder='inbox',
+                is_read=False,
+                created_at=datetime.utcnow(),
+            ))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+def _access_alert_body(headline, who_line, ip, origin_label, ua, success=True):
+    color = '#2563eb' if success else '#dc2626'
+    when = datetime.utcnow().strftime('%d %b %Y, %H:%M UTC')
+    return (
+        '<div style="font-family:Inter,Arial,sans-serif;color:#0f172a;">'
+        f'<p style="font-size:15px;margin:0 0 10px;"><strong style="color:{color};">{headline}</strong></p>'
+        f'<p style="margin:0 0 6px;">{who_line}</p>'
+        '<table style="border-collapse:collapse;font-size:13px;margin-top:8px;">'
+        f'<tr><td style="padding:3px 14px 3px 0;color:#64748b;">When</td><td>{when}</td></tr>'
+        f'<tr><td style="padding:3px 14px 3px 0;color:#64748b;">IP address</td><td>{ip}</td></tr>'
+        f'<tr><td style="padding:3px 14px 3px 0;color:#64748b;">Origin</td><td>{origin_label}</td></tr>'
+        f'<tr><td style="padding:3px 14px 3px 0;color:#64748b;">Device</td><td>{_short_device(ua)}</td></tr>'
+        '</table>'
+        '<p style="font-size:12px;color:#64748b;margin-top:12px;">If this wasn\'t you or your team, '
+        'change the admin password now from Admin &rarr; Password &amp; Security.</p>'
+        '</div>'
+    )
+
+@app.before_request
+def _alert_on_admin_area_access():
+    """A signed-in NON-admin (team member) poking at /admin -> alert the admin."""
+    try:
+        if (request.path.startswith('/admin')
+                and current_user.is_authenticated
+                and getattr(current_user, 'role', None) != 'admin'):
+            ip = _client_ip()
+            _origin, origin_label = _ip_origin_label(ip)
+            if not _alert_throttled(f"adminarea_{current_user.id}", 300):
+                notify_admins_security(
+                    "⚠️ Team member tried to open the admin area",
+                    _access_alert_body(
+                        "A non-admin account tried to access the admin area.",
+                        f"<strong>{current_user.name}</strong> ({current_user.email}) — a provisioned "
+                        f"team member — tried to open <code>{request.path}</code>. Access was blocked.",
+                        ip, origin_label, request.headers.get('User-Agent', ''), success=False))
+    except Exception:
+        pass
+
 @app.after_request
 def add_security_headers(response):
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
@@ -264,6 +359,18 @@ def login():
         if not allowed:
             flash(rate_msg, "danger")
             log_system_event('auth', f"⚠️ Rate limit blocked login attempt for {email} from IP {client_ip}", email)
+            # Repeated blocked attempts on the admin account = likely brute force.
+            if User.query.filter_by(email=email, role='admin').first():
+                _ip = _client_ip()
+                _origin, _origin_label = _ip_origin_label(_ip)
+                if not _alert_throttled(f"lockadmin_{_ip}", 900):
+                    notify_admins_security(
+                        "🚨 Admin account locked after repeated failed sign-ins",
+                        _access_alert_body(
+                            "Repeated failed sign-ins to the admin account triggered a temporary lock.",
+                            f"Multiple wrong-password attempts for <strong>{email}</strong> came from "
+                            f"{_origin_label}. The account is temporarily locked for safety.",
+                            _ip, _origin_label, request.headers.get('User-Agent', ''), success=False))
             return render_template('auth/login.html')
 
         user = User.query.filter_by(email=email).first()
@@ -279,11 +386,33 @@ def login():
             log_system_event('auth', f"✅ User {user.email} logged in successfully from IP {client_ip} (SSL Encrypted).", user.email)
             flash(f"Welcome back, {user.name}! Authenticated & SSL Encrypted Session Active.", "success")
             if user.role == 'admin':
+                # Security: alert the owner every time the admin account is accessed.
+                _ip = _client_ip()
+                _origin, _origin_label = _ip_origin_label(_ip)
+                notify_admins_security(
+                    f"🔐 Admin sign-in — {_origin} access",
+                    _access_alert_body(
+                        "The admin account was just signed in.",
+                        f"Signed in as <strong>{user.name}</strong> ({user.email}) from {_origin_label}.",
+                        _ip, _origin_label, request.headers.get('User-Agent', ''), success=True))
                 return redirect(url_for('admin_dashboard'))
             return redirect(url_for('webmail_inbox'))
 
         record_failed_login_attempt(rate_key)
         log_system_event('auth', f"⚠️ Failed login attempt for email: {email} from IP {client_ip}", email)
+        # Security: a wrong-password attempt against the admin account = an
+        # outsider (or team member) trying to get into admin -> alert (throttled).
+        if User.query.filter_by(email=email, role='admin').first():
+            _ip = _client_ip()
+            _origin, _origin_label = _ip_origin_label(_ip)
+            if not _alert_throttled(f"failadmin_{_ip}", 600):
+                notify_admins_security(
+                    "🚨 Failed admin sign-in attempt",
+                    _access_alert_body(
+                        "Someone tried to sign in to the admin account and FAILED.",
+                        f"A sign-in to <strong>{email}</strong> from {_origin_label} was rejected "
+                        f"(wrong password).",
+                        _ip, _origin_label, request.headers.get('User-Agent', ''), success=False))
         flash('Invalid email or password.', 'danger')
 
     return render_template('auth/login.html')

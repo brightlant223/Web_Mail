@@ -134,30 +134,100 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-// PWA Deferred Installation Prompt Handler
+// PWA Deferred Installation Prompt Handler + install popup banner
 let deferredPwaPrompt;
+
+function pwaIsInstalled() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function pwaDismissedRecently() {
+    try {
+        const ts = parseInt(localStorage.getItem('pwaInstallDismissed') || '0', 10);
+        return ts && (Date.now() - ts) < 7 * 24 * 60 * 60 * 1000; // snooze 7 days
+    } catch (e) { return false; }
+}
+// __PWA_PART2__
+
+function showPwaInstallBanner(iosMode) {
+    if (pwaIsInstalled() || pwaDismissedRecently()) return;
+    if (document.getElementById('pwaInstallBanner')) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'pwaInstallBanner';
+    banner.className = 'pwa-install-banner';
+    banner.setAttribute('role', 'dialog');
+    banner.setAttribute('aria-label', 'Install Brightlant Webmail');
+
+    const actions = iosMode
+        ? '<div class="pwa-install-ios">Tap <i class="fas fa-arrow-up-from-bracket"></i> then <strong>Add to Home Screen</strong></div>'
+        : '<button type="button" class="pwa-install-yes" id="pwaBannerInstall"><i class="fas fa-download"></i> Install</button>';
+
+    banner.innerHTML =
+        '<div class="pwa-install-icon"><i class="fas fa-paper-plane"></i></div>' +
+        '<div class="pwa-install-text">' +
+            '<div class="pwa-install-title">Install Brightlant Webmail</div>' +
+            '<div class="pwa-install-sub">Add it to your home screen for a faster, full-screen app experience.</div>' +
+        '</div>' +
+        '<div class="pwa-install-actions">' + actions +
+            '<button type="button" class="pwa-install-no" id="pwaBannerDismiss">Not now</button>' +
+        '</div>';
+
+    document.body.appendChild(banner);
+    requestAnimationFrame(() => banner.classList.add('show'));
+
+    const dismiss = () => {
+        banner.classList.remove('show');
+        try { localStorage.setItem('pwaInstallDismissed', String(Date.now())); } catch (e) {}
+        setTimeout(() => banner.remove(), 300);
+    };
+    const dBtn = document.getElementById('pwaBannerDismiss');
+    if (dBtn) dBtn.addEventListener('click', dismiss);
+    const iBtn = document.getElementById('pwaBannerInstall');
+    if (iBtn) iBtn.addEventListener('click', installPwaApp);
+}
+// __PWA_PART3__
+
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPwaPrompt = e;
     const btn = document.getElementById('pwaInstallBtn');
     if (btn) btn.style.display = 'inline-flex';
+    // Browser says we're installable — surface the popup shortly after load.
+    setTimeout(() => showPwaInstallBanner(false), 1200);
+});
+
+window.addEventListener('appinstalled', () => {
+    deferredPwaPrompt = null;
+    const b = document.getElementById('pwaInstallBanner');
+    if (b) { b.classList.remove('show'); setTimeout(() => b.remove(), 300); }
+    const btn = document.getElementById('pwaInstallBtn');
+    if (btn) btn.style.display = 'none';
 });
 
 function installPwaApp() {
     if (deferredPwaPrompt) {
         deferredPwaPrompt.prompt();
         deferredPwaPrompt.userChoice.then((choiceResult) => {
-            if (choiceResult.outcome === 'accepted') {
-                console.log('User accepted PWA installation');
-                const btn = document.getElementById('pwaInstallBtn');
-                if (btn) btn.style.display = 'none';
-            }
+            const b = document.getElementById('pwaInstallBanner');
+            if (b) { b.classList.remove('show'); setTimeout(() => b.remove(), 300); }
+            const btn = document.getElementById('pwaInstallBtn');
+            if (choiceResult.outcome === 'accepted' && btn) btn.style.display = 'none';
             deferredPwaPrompt = null;
         });
     } else {
-        alert("App Installation: To install Brightlant Webmail, click the install icon in your browser URL address bar!");
+        alert("To install Brightlant Webmail, open your browser menu and choose 'Install app' / 'Add to Home Screen'.");
     }
 }
+
+// iOS Safari never fires beforeinstallprompt — show a manual hint banner instead.
+document.addEventListener('DOMContentLoaded', () => {
+    const ua = window.navigator.userAgent || '';
+    const isIOS = /iphone|ipad|ipod/i.test(ua);
+    const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(ua);
+    if (isIOS && isSafari && !pwaIsInstalled()) {
+        setTimeout(() => showPwaInstallBanner(true), 1500);
+    }
+});
 
 // --- AUDIO NOTIFICATION SYNTHESIZER (Web Audio API) — 5 device-style tones ---
 const NOTIF_DEFAULTS = { sound: 'shimmer', soundOn: true, volume: 0.6, desktop: true, toast: true };
